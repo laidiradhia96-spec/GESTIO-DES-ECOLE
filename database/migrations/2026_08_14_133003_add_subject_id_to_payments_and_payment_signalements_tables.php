@@ -3,8 +3,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -20,11 +20,21 @@ return new class extends Migration
         |
         */
 
-        DB::statement("
-            ALTER TABLE payments
-            MODIFY subject_id BIGINT UNSIGNED NULL
-        ");
+        if (DB::connection()->getDriverName() === 'mysql') {
 
+            DB::statement('
+                ALTER TABLE payments
+                MODIFY subject_id BIGINT UNSIGNED NULL
+            ');
+
+        } elseif (! Schema::hasColumn('payments', 'subject_id')) {
+
+            Schema::table('payments', function (Blueprint $table) {
+
+                $table->unsignedBigInteger('subject_id')
+                    ->nullable();
+            });
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -32,19 +42,18 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         */
 
-        if (!Schema::hasColumn('payments', 'payment_type')) {
+        if (! Schema::hasColumn('payments', 'payment_type')) {
 
             Schema::table('payments', function (Blueprint $table) {
 
                 $table->enum('payment_type', [
                     'monthly',
-                    'vip'
+                    'vip',
                 ])
-                ->default('monthly')
-                ->after('period');
+                    ->default('monthly')
+                    ->after('period');
             });
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -52,7 +61,7 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         */
 
-        if (!Schema::hasColumn('payment_signalements', 'subject_id')) {
+        if (! Schema::hasColumn('payment_signalements', 'subject_id')) {
 
             Schema::table('payment_signalements', function (Blueprint $table) {
 
@@ -62,14 +71,13 @@ return new class extends Migration
             });
         }
 
-
         /*
         |--------------------------------------------------------------------------
         | 4. تاريخ الحضور الذي تسبب في signalement
         |--------------------------------------------------------------------------
         */
 
-        if (!Schema::hasColumn('payment_signalements', 'attendance_date')) {
+        if (! Schema::hasColumn('payment_signalements', 'attendance_date')) {
 
             Schema::table('payment_signalements', function (Blueprint $table) {
 
@@ -78,7 +86,6 @@ return new class extends Migration
                     ->after('signalement_date');
             });
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -94,7 +101,6 @@ return new class extends Migration
                 ->nullOnDelete();
         });
 
-
         /*
         |--------------------------------------------------------------------------
         | 6. Foreign Key payment_signalements.subject_id
@@ -109,7 +115,6 @@ return new class extends Migration
                 ->nullOnDelete();
         });
     }
-
 
     public function down(): void
     {
@@ -132,7 +137,6 @@ return new class extends Migration
             });
         }
 
-
         if (Schema::hasColumn('payment_signalements', 'attendance_date')) {
 
             Schema::table('payment_signalements', function (Blueprint $table) {
@@ -140,7 +144,6 @@ return new class extends Migration
                 $table->dropColumn('attendance_date');
             });
         }
-
 
         /*
         |--------------------------------------------------------------------------
@@ -152,7 +155,6 @@ return new class extends Migration
 
             $table->dropForeign(['subject_id']);
         });
-
 
         if (Schema::hasColumn('payments', 'payment_type')) {
 

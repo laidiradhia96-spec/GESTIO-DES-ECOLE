@@ -170,11 +170,11 @@
                                             </div>
 
 
-                                            @if($teacher->speciality)
+                                            @if($teacher->subjects->isNotEmpty())
 
                                                 <div class="text-sm text-gray-500 mt-1">
 
-                                                    {{ $teacher->speciality }}
+                                                    {{ $teacher->subjects->pluck('name')->join(', ') }}
 
                                                 </div>
 

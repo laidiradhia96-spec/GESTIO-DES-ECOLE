@@ -397,7 +397,7 @@
                 <form method="GET"
                       action="{{ route('payment-signalements.index') }}">
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
 
 
                         {{-- Recherche --}}
@@ -424,6 +424,39 @@
                         </div>
 
 
+                        {{-- Année --}}
+                        <div>
+
+                            <label class="block text-sm font-medium
+                                          text-gray-700 mb-2">
+
+                                Année
+
+                            </label>
+
+                            <select name="year"
+                                    class="w-full
+                                           rounded-xl
+                                           border-gray-200
+                                           focus:border-[#0B2A55]
+                                           focus:ring-[#0B2A55]">
+
+                                @foreach($years as $availableYear)
+
+                                    <option value="{{ $availableYear }}"
+                                        {{ (int) request('year', now()->format('Y')) === (int) $availableYear ? 'selected' : '' }}>
+
+                                        {{ $availableYear }}
+
+                                    </option>
+
+                                @endforeach
+
+                            </select>
+
+                        </div>
+
+
                         {{-- Période --}}
                         <div>
 
@@ -434,16 +467,29 @@
 
                             </label>
 
-                            <input type="text"
-                                   name="period"
-                                   value="{{ request('period') }}"
-                                   placeholder="Ex: Septembre 2026"
+                            <select name="period"
+                                    class="w-full
+                                           rounded-xl
+                                           border-gray-200
+                                           focus:border-[#0B2A55]
+                                           focus:ring-[#0B2A55]">
 
-                                   class="w-full
-                                          rounded-xl
-                                          border-gray-200
-                                          focus:border-[#0B2A55]
-                                          focus:ring-[#0B2A55]">
+                                <option value="">
+                                    Tous les mois
+                                </option>
+
+                                @foreach($months as $monthOption)
+
+                                    <option value="{{ $monthOption['value'] }}"
+                                        {{ request('period') === $monthOption['value'] ? 'selected' : '' }}>
+
+                                        {{ $monthOption['label'] }}
+
+                                    </option>
+
+                                @endforeach
+
+                            </select>
 
                         </div>
 
@@ -589,6 +635,24 @@
                                     <th class="px-6 py-4
                                                text-xs font-semibold
                                                text-gray-500 uppercase">
+                                        Parent
+                                    </th>
+
+                                    <th class="px-6 py-4
+                                               text-xs font-semibold
+                                               text-gray-500 uppercase">
+                                        Matière
+                                    </th>
+
+                                    <th class="px-6 py-4
+                                               text-xs font-semibold
+                                               text-gray-500 uppercase">
+                                        Type
+                                    </th>
+
+                                    <th class="px-6 py-4
+                                               text-xs font-semibold
+                                               text-gray-500 uppercase">
                                         Période
                                     </th>
 
@@ -596,12 +660,6 @@
                                                text-xs font-semibold
                                                text-gray-500 uppercase">
                                         Montant restant
-                                    </th>
-
-                                    <th class="px-6 py-4
-                                               text-xs font-semibold
-                                               text-gray-500 uppercase">
-                                        Date
                                     </th>
 
                                     <th class="px-6 py-4
@@ -654,20 +712,67 @@
 
                                                     </p>
 
-                                                    @if($signalement->student->parent_name ?? false)
-
-                                                        <p class="text-xs text-gray-500 mt-1">
-
-                                                            Parent :
-                                                            {{ $signalement->student->parent_name }}
-
-                                                        </p>
-
-                                                    @endif
-
                                                 </div>
 
                                             </div>
+
+                                        </td>
+
+
+                                        {{-- Parent --}}
+                                        <td class="px-6 py-5">
+
+                                            <span class="text-sm text-gray-500">
+
+                                                {{ $signalement->student->parent_name ?? '-' }}
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {{-- Matière --}}
+                                        <td class="px-6 py-5">
+
+                                            <span class="text-sm font-medium text-gray-700">
+
+                                                {{ $signalement->subject->name ?? '-' }}
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {{-- Type --}}
+                                        <td class="px-6 py-5">
+
+                                            @if($signalement->type === 'vip')
+
+                                                <span class="inline-flex items-center px-3 py-1.5
+                                                             rounded-full
+                                                             bg-purple-100
+                                                             text-purple-700
+                                                             text-xs
+                                                             font-semibold">
+
+                                                    VIP
+
+                                                </span>
+
+                                            @else
+
+                                                <span class="inline-flex items-center px-3 py-1.5
+                                                             rounded-full
+                                                             bg-indigo-100
+                                                             text-indigo-700
+                                                             text-xs
+                                                             font-semibold">
+
+                                                    Mensuel
+
+                                                </span>
+
+                                            @endif
 
                                         </td>
 
@@ -677,7 +782,7 @@
 
                                             <span class="text-sm font-medium text-gray-700">
 
-                                                {{ $signalement->period }}
+                                                {{ $signalement->period_label ?? $signalement->period }}
 
                                             </span>
 
@@ -692,20 +797,6 @@
                                                 {{ number_format($signalement->amount_remaining, 2, ',', ' ') }}
 
                                                 DA
-
-                                            </span>
-
-                                        </td>
-
-
-                                        {{-- Date --}}
-                                        <td class="px-6 py-5">
-
-                                            <span class="text-sm text-gray-500">
-
-                                                {{ $signalement->signalement_date
-                                                    ? \Carbon\Carbon::parse($signalement->signalement_date)->format('d/m/Y')
-                                                    : '-' }}
 
                                             </span>
 
@@ -765,90 +856,98 @@
                                         {{-- Actions --}}
                                         <td class="px-6 py-5">
 
-                                            <div class="flex items-center justify-end gap-2">
+                                            @if($signalement->signalement)
+
+                                                <div class="flex items-center justify-end gap-2">
 
 
-                                                {{-- Voir --}}
-                                                <a href="{{ route(
-                                                    'payment-signalements.show',
-                                                    $signalement
-                                                ) }}"
-                                                   class="w-10 h-10
-                                                          rounded-xl
-                                                          bg-blue-50
-                                                          text-[#0B2A55]
-                                                          flex items-center justify-center
-                                                          hover:bg-blue-100
-                                                          transition"
-                                                   title="Voir">
+                                                    {{-- Voir --}}
+                                                    <a href="{{ route(
+                                                        'payment-signalements.show',
+                                                        $signalement->signalement
+                                                    ) }}"
+                                                       class="w-10 h-10
+                                                              rounded-xl
+                                                              bg-blue-50
+                                                              text-[#0B2A55]
+                                                              flex items-center justify-center
+                                                              hover:bg-blue-100
+                                                              transition"
+                                                       title="Voir">
 
-                                                    👁️
+                                                        👁️
 
-                                                </a>
-
-
-                                                {{-- Envoyer --}}
-                                                @if($signalement->status === 'pending')
-
-                                                    <form method="POST"
-                                                          action="{{ route(
-                                                              'payment-signalements.sent',
-                                                              $signalement
-                                                          ) }}">
-
-                                                        @csrf
-                                                        @method('PATCH')
-
-                                                        <button type="submit"
-                                                                class="w-10 h-10
-                                                                       rounded-xl
-                                                                       bg-yellow-50
-                                                                       text-yellow-700
-                                                                       flex items-center justify-center
-                                                                       hover:bg-yellow-100
-                                                                       transition"
-                                                                title="Marquer comme envoyé">
-
-                                                            📩
-
-                                                        </button>
-
-                                                    </form>
-
-                                                @endif
+                                                    </a>
 
 
-                                                {{-- Résoudre --}}
-                                                @if($signalement->status !== 'resolved')
+                                                    {{-- Envoyer --}}
+                                                    @if($signalement->status === 'pending')
 
-                                                    <form method="POST"
-                                                          action="{{ route(
-                                                              'payment-signalements.resolved',
-                                                              $signalement
-                                                          ) }}">
+                                                        <form method="POST"
+                                                              action="{{ route(
+                                                                  'payment-signalements.sent',
+                                                                  $signalement->signalement
+                                                              ) }}">
 
-                                                        @csrf
-                                                        @method('PATCH')
+                                                            @csrf
+                                                            @method('PATCH')
 
-                                                        <button type="submit"
-                                                                class="w-10 h-10
-                                                                       rounded-xl
-                                                                       bg-green-50
-                                                                       text-green-700
-                                                                       flex items-center justify-center
-                                                                       hover:bg-green-100
-                                                                       transition"
-                                                                title="Marquer comme résolu">
+                                                            <button type="submit"
+                                                                    class="w-10 h-10
+                                                                           rounded-xl
+                                                                           bg-yellow-50
+                                                                           text-yellow-700
+                                                                           flex items-center justify-center
+                                                                           hover:bg-yellow-100
+                                                                           transition"
+                                                                    title="Marquer comme envoyé">
 
-                                                            ✅
+                                                                📩
 
-                                                        </button>
+                                                            </button>
 
-                                                    </form>
+                                                        </form>
 
-                                                @endif
+                                                    @endif
 
-                                            </div>
+
+                                                    {{-- Résoudre --}}
+                                                    @if($signalement->status !== 'resolved')
+
+                                                        <form method="POST"
+                                                              action="{{ route(
+                                                                  'payment-signalements.resolved',
+                                                                  $signalement->signalement
+                                                              ) }}">
+
+                                                            @csrf
+                                                            @method('PATCH')
+
+                                                            <button type="submit"
+                                                                    class="w-10 h-10
+                                                                           rounded-xl
+                                                                           bg-green-50
+                                                                           text-green-700
+                                                                           flex items-center justify-center
+                                                                           hover:bg-green-100
+                                                                           transition"
+                                                                    title="Marquer comme résolu">
+
+                                                                ✅
+
+                                                            </button>
+
+                                                        </form>
+
+                                                    @endif
+
+                                                </div>
+
+                                            @else
+
+                                                <span class="text-sm text-gray-400">—</span>
+
+                                            @endif
 
                                         </td>
 

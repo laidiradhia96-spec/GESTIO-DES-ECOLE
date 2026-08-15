@@ -2,21 +2,30 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Subject extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'code',
         'description',
         'level',
+        'primaire',
+        'moyen',
+        'lycee',
         'hours_per_week',
         'active',
     ];
 
     protected $casts = [
         'active' => 'boolean',
+        'primaire' => 'boolean',
+        'moyen' => 'boolean',
+        'lycee' => 'boolean',
     ];
 
     public function enrollments()

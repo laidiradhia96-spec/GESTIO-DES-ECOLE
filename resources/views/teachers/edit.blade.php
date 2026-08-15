@@ -87,7 +87,7 @@
 
                             <p class="text-blue-100 text-sm mt-1">
 
-                                {{ $teacher->speciality }}
+                                {{ $teacher->subjects->pluck('name')->join(', ') ?: $teacher->speciality }}
 
                             </p>
 
@@ -224,29 +224,100 @@
                             </div>
 
 
-                            <!-- Spécialité -->
+                            <!-- Matières enseignées -->
 
-                            <div>
+                            <div class="md:col-span-2">
 
                                 <label class="block text-sm font-bold
                                               text-gray-700
                                               dark:text-gray-300 mb-2">
 
-                                    Spécialité *
+                                    Matières enseignées
 
                                 </label>
 
-                                <input
-                                    type="text"
-                                    name="speciality"
-                                    value="{{ old('speciality', $teacher->speciality) }}"
-                                    required
-                                    class="w-full rounded-xl
-                                           border-gray-300
-                                           px-4 py-3
-                                           focus:border-[#0B2A55]
-                                           focus:ring-[#0B2A55]"
-                                >
+                                <div class="grid grid-cols-1
+                                            sm:grid-cols-2
+                                            lg:grid-cols-3
+                                            gap-3">
+
+                                    @php
+
+                                        $selectedSubjects = old(
+                                            'subjects',
+                                            $teacher->subjects->pluck('id')->toArray()
+                                        );
+
+                                    @endphp
+
+                                    @foreach($subjects as $subject)
+
+                                        <label class="relative cursor-pointer">
+
+                                            <input
+                                                type="checkbox"
+                                                name="subjects[]"
+                                                value="{{ $subject->id }}"
+                                                class="peer sr-only"
+                                                {{ in_array($subject->id, $selectedSubjects) ? 'checked' : '' }}
+                                            >
+
+                                            <div class="p-4 rounded-2xl
+                                                        border-2 border-gray-200
+                                                        bg-gray-50
+                                                        peer-checked:border-[#0B2A55]
+                                                        peer-checked:bg-blue-50
+                                                        transition">
+
+                                                <div class="flex items-center gap-3">
+
+                                                    <div class="w-10 h-10 rounded-xl
+                                                                bg-white
+                                                                flex items-center justify-center
+                                                                shadow-sm">
+
+                                                        📚
+
+                                                    </div>
+
+                                                    <div>
+
+                                                        <div class="font-extrabold
+                                                                    text-[#0B2A55]">
+
+                                                            {{ $subject->name }}
+
+                                                        </div>
+
+                                                        @if($subject->code)
+
+                                                            <div class="text-xs text-gray-500 mt-1">
+
+                                                                {{ $subject->code }}
+
+                                                            </div>
+
+                                                        @endif
+
+                                                    </div>
+
+                                                </div>
+
+                                            </div>
+
+                                        </label>
+
+                                    @endforeach
+
+                                </div>
+
+                                @error('subjects')
+
+                                    <p class="mt-3 text-sm text-red-600 font-semibold">
+                                        {{ $message }}
+                                    </p>
+
+                                @enderror
 
                             </div>
 

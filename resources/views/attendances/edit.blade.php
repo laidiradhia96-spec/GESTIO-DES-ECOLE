@@ -340,6 +340,7 @@
                                 <select
                                     id="teacher_id"
                                     name="teacher_id"
+                                    required
                                     class="w-full
                                            rounded-xl
                                            border-gray-200
@@ -348,7 +349,7 @@
                                 >
 
                                     <option value="">
-                                        Aucun enseignant
+                                        Sélectionner un enseignant
                                     </option>
 
                                     @foreach($teachers as $teacher)

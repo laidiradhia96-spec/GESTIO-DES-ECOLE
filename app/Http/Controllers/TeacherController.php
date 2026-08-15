@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Teacher;
 use App\Models\Level;
+use App\Models\Subject;
+use App\Models\Teacher;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
@@ -13,7 +14,7 @@ class TeacherController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Teacher::with('levels');
+        $query = Teacher::with('levels', 'subjects');
 
         // Recherche
         if ($request->filled('search')) {
@@ -21,9 +22,9 @@ class TeacherController extends Controller
 
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('speciality', 'like', "%{$search}%")
-                  ->orWhere('phone', 'like', "%{$search}%");
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('speciality', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
             });
         }
 
@@ -49,41 +50,52 @@ class TeacherController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('teachers.create', compact('levels'));
+        $subjects = Subject::where('active', true)
+            ->orderBy('name')
+            ->get();
+
+        return view('teachers.create', compact('levels', 'subjects'));
     }
-
-
 
     /**
      * Enregistrer un enseignant
      */
     public function store(Request $request)
-{
-    $validated = $request->validate([
-        'first_name' => 'required|string|max:100',
-        'last_name' => 'required|string|max:100',
-        'speciality' => 'required|string|max:150',
-        'phone' => 'nullable|string|max:30',
-        'email' => 'nullable|email|max:150',
-        'address' => 'nullable|string',
-        'hire_date' => 'nullable|date',
-        'active' => 'nullable|boolean',
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'speciality' => 'nullable|string|max:150',
+            'phone' => 'nullable|string|max:30',
+            'email' => 'nullable|email|max:150',
+            'address' => 'nullable|string',
+            'hire_date' => 'nullable|date',
+            'active' => 'nullable|boolean',
 
-        'levels' => 'nullable|array',
-        'levels.*' => 'exists:levels,id',
-    ]);
+            'levels' => 'nullable|array',
+            'levels.*' => 'exists:levels,id',
 
-    $validated['active'] = $request->has('active');
+            'subjects' => 'nullable|array',
+            'subjects.*' => 'exists:subjects,id',
+        ]);
 
-    $teacher = Teacher::create($validated);
+        $validated['active'] = $request->has('active');
 
-    // ربط الأستاذ بالمستويات
-    $teacher->levels()->sync($request->input('levels', []));
+        // Colonne NOT NULL en base : valeur neutre quand le champ est absent
+        $validated['speciality'] = $validated['speciality'] ?? '—';
 
-    return redirect()
-        ->route('teachers.index')
-        ->with('success', 'Enseignant ajouté avec succès.');
-}
+        $teacher = Teacher::create($validated);
+
+        // ربط الأستاذ بالمستويات
+        $teacher->levels()->sync($request->input('levels', []));
+
+        // ربط الأستاذ بالمواد
+        $teacher->subjects()->sync($request->input('subjects', []));
+
+        return redirect()
+            ->route('teachers.index')
+            ->with('success', 'Enseignant ajouté avec succès.');
+    }
 
     /**
      * Afficher un enseignant
@@ -104,9 +116,13 @@ class TeacherController extends Controller
             ->orderBy('name')
             ->get();
 
-        $teacher->load('levels');
+        $subjects = Subject::where('active', true)
+            ->orderBy('name')
+            ->get();
 
-        return view('teachers.edit', compact('teacher', 'levels'));
+        $teacher->load('levels', 'subjects');
+
+        return view('teachers.edit', compact('teacher', 'levels', 'subjects'));
     }
 
     /**
@@ -117,7 +133,7 @@ class TeacherController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
             'last_name' => 'required|string|max:100',
-            'speciality' => 'required|string|max:150',
+            'speciality' => 'nullable|string|max:150',
             'phone' => 'nullable|string|max:30',
             'email' => 'nullable|email|max:150',
             'address' => 'nullable|string',
@@ -126,14 +142,24 @@ class TeacherController extends Controller
 
             'levels' => 'nullable|array',
             'levels.*' => 'exists:levels,id',
+
+            'subjects' => 'nullable|array',
+            'subjects.*' => 'exists:subjects,id',
         ]);
 
         $validated['active'] = $request->has('active');
+
+        // Colonne NOT NULL en base : on conserve l'ancienne valeur
+        // si le champ (retiré du formulaire) n'est pas envoyé.
+        $validated['speciality'] = $validated['speciality'] ?? $teacher->speciality;
 
         $teacher->update($validated);
 
         // تحديث المستويات
         $teacher->levels()->sync($request->input('levels', []));
+
+        // تحديث المواد
+        $teacher->subjects()->sync($request->input('subjects', []));
 
         return redirect()
             ->route('teachers.index')

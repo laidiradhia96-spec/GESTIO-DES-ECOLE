@@ -355,7 +355,27 @@
 
                                     <span class="text-gray-700 font-medium">
 
-                                        {{ $subject->level ?? '-' }}
+                                        <div class="flex flex-wrap gap-1">
+
+    @if($subject->primaire)
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+            Primaire
+        </span>
+    @endif
+
+    @if($subject->moyen)
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-green-50 text-green-700">
+            Moyen
+        </span>
+    @endif
+
+    @if($subject->lycee)
+        <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700">
+            Lycée
+        </span>
+    @endif
+
+</div>
 
                                     </span>
 

@@ -265,17 +265,19 @@
                         </option>
 
                         @foreach([
-                            'Septembre',
-                            'Octobre',
-                            'Novembre',
-                            'Décembre',
-                            'Janvier',
-                            'Février',
-                            'Mars',
-                            'Avril',
-                            'Mai',
-                            'Juin'
-                        ] as $month)
+    'Janvier',
+    'Février',
+    'Mars',
+    'Avril',
+    'Mai',
+    'Juin',
+    'Juillet',
+    'Août',
+    'Septembre',
+    'Octobre',
+    'Novembre',
+    'Décembre'
+] as $month)
 
                             <option value="{{ $month }}"
                                 {{ old('period') == $month ? 'selected' : '' }}>

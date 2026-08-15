@@ -196,7 +196,6 @@
 
                 @csrf
 
-
                 <div class="space-y-6">
 
 
@@ -382,7 +381,6 @@
 
                                     </label>
 
-
                                     <select
                                         name="level"
                                         id="level"
@@ -401,7 +399,6 @@
                                         <option value="">
                                             Sélectionner un niveau
                                         </option>
-
 
                                         <optgroup label="Primaire">
 
@@ -432,7 +429,6 @@
 
                                         </optgroup>
 
-
                                         <optgroup label="CEM">
 
                                             <option value="1AM"
@@ -457,7 +453,6 @@
 
                                         </optgroup>
 
-
                                         <optgroup label="Lycée">
 
                                             <option value="1AS"
@@ -478,7 +473,6 @@
                                         </optgroup>
 
                                     </select>
-
 
                                     @error('level')
 
@@ -543,11 +537,9 @@
 
                         </div>
 
-
                         <div class="p-6 md:p-7">
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
 
                                 <!-- Téléphone -->
 
@@ -679,11 +671,9 @@
 
                         </div>
 
-
                         <div class="p-6 md:p-7">
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
 
                                 <!-- Nom parent -->
 
@@ -779,17 +769,14 @@
                                 dark:border-gray-700
                                 overflow-hidden">
 
-
                         <div class="px-6 py-5
                                     border-b border-gray-100
                                     dark:border-gray-700">
-
 
                             <div class="flex flex-col sm:flex-row
                                         sm:items-center
                                         sm:justify-between
                                         gap-4">
-
 
                                 <div class="flex items-center gap-3">
 
@@ -800,7 +787,6 @@
                                         📚
 
                                     </div>
-
 
                                     <div>
 
@@ -851,10 +837,8 @@
 
                         <div class="p-6 md:p-7">
 
-
                             <div id="enrollments-container"
                                  class="space-y-5">
-
                             </div>
 
 
@@ -893,6 +877,18 @@
                             @endforeach
 
 
+                            @foreach ($errors->get('enrollments.*.teacher_id') as $messages)
+
+                                @foreach ($messages as $message)
+
+                                    <p class="mt-3 text-sm text-red-600">
+                                        {{ $message }}
+                                    </p>
+
+                                @endforeach
+
+                            @endforeach
+
                         </div>
 
                     </div>
@@ -913,7 +909,6 @@
                                 shadow-sm
                                 border border-gray-100
                                 dark:border-gray-700">
-
 
                         <a
                             href="{{ route('students.index') }}"
@@ -962,9 +957,7 @@
 
                         </button>
 
-
                     </div>
-
 
                 </div>
 
@@ -997,12 +990,171 @@
 
 
         // =====================================================
+        // CHARGER LES MATIÈRES SELON LE NIVEAU
+        // =====================================================
+
+        function loadSubjectsForLevel(
+            select,
+            restoreSubjectId = null
+        ) {
+
+            const level =
+                levelSelect.value;
+
+
+            select.disabled = true;
+
+
+            select.innerHTML = `
+                <option value="">
+                    ${
+                        level
+                            ? 'Chargement des matières...'
+                            : 'Sélectionner d’abord un niveau'
+                    }
+                </option>
+            `;
+
+
+            if (!level) {
+
+                return;
+
+            }
+
+
+            const url =
+                "{{ route('subjects.by-level', '__LEVEL__') }}"
+                    .replace('__LEVEL__', level);
+
+
+            fetch(url)
+
+                .then(response => {
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            'Erreur lors du chargement'
+                        );
+
+                    }
+
+                    return response.json();
+
+                })
+
+                .then(subjects => {
+
+                    select.innerHTML = `
+                        <option value="">
+                            Sélectionner une matière
+                        </option>
+                    `;
+
+
+                    if (
+                        !Array.isArray(subjects) ||
+                        subjects.length === 0
+                    ) {
+
+                        select.innerHTML = `
+                            <option value="">
+                                Aucune matière disponible pour ${level}
+                            </option>
+                        `;
+
+                        return;
+
+                    }
+
+
+                    subjects.forEach(subject => {
+
+                        const option =
+                            document.createElement('option');
+
+
+                        option.value =
+                            subject.id;
+
+
+                        option.textContent =
+                            subject.name +
+                            (
+                                subject.code
+                                    ? ` (${subject.code})`
+                                    : ''
+                            );
+
+
+                        if (
+                            restoreSubjectId &&
+                            String(restoreSubjectId) ===
+                            String(subject.id)
+                        ) {
+
+                            option.selected = true;
+
+                        }
+
+
+                        select.appendChild(option);
+
+                    });
+
+
+                    select.disabled = false;
+
+
+                    // Si ancienne matière trouvée
+                    if (select.value) {
+
+                        const row =
+                            select.closest(
+                                '.enrollment-row'
+                            );
+
+
+                        const teacherSelect =
+                            row.querySelector(
+                                '.teacher-select'
+                            );
+
+
+                        loadTeachers(
+                            select,
+                            teacherSelect
+                        );
+
+                    }
+
+                })
+
+                .catch(error => {
+
+                    console.error(error);
+
+
+                    select.innerHTML = `
+                        <option value="">
+                            Erreur de chargement des matières
+                        </option>
+                    `;
+
+                });
+
+        }
+
+
+        // =====================================================
         // CRÉER UNE LIGNE
         // =====================================================
 
         function createEnrollmentRow(data = {}) {
 
-            const index = enrollmentIndex++;
+            const index =
+                enrollmentIndex++;
 
 
             const row =
@@ -1025,9 +1177,7 @@
 
                 <div class="flex items-center justify-between mb-4">
 
-
                     <div class="flex items-center gap-2">
-
 
                         <div class="enrollment-number
                                     w-8 h-8 rounded-lg
@@ -1040,7 +1190,6 @@
 
                         </div>
 
-
                         <span class="enrollment-title
                                      font-bold
                                      text-[#0B2A55]
@@ -1049,7 +1198,6 @@
                             Matière ${index + 1}
 
                         </span>
-
 
                     </div>
 
@@ -1072,17 +1220,15 @@
 
                     </button>
 
-
                 </div>
 
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
 
 
                     <!-- MATIÈRE -->
 
                     <div>
-
 
                         <label class="block text-sm font-bold
                                       text-[#0B2A55]
@@ -1106,35 +1252,60 @@
                                    focus:ring-[#C89B3C]/10"
                             required>
 
-
                             <option value="">
 
                                 Sélectionner une matière
 
                             </option>
 
+                        </select>
 
-                            @foreach($subjects as $subject)
+                    </div>
 
-                                <option
-                                    value="{{ $subject->id }}"
-                                    data-level="{{ $subject->level }}">
 
-                                    {{ $subject->name }}
+                    <!-- ENSEIGNANT -->
 
-                                    @if($subject->code)
+                    <div>
 
-                                        ({{ $subject->code }})
+                        <label class="block text-sm font-bold
+                                      text-[#0B2A55]
+                                      dark:text-gray-200 mb-2">
 
-                                    @endif
+                            Enseignant *
 
-                                </option>
+                        </label>
 
-                            @endforeach
 
+                        <select
+                            name="enrollments[${index}][teacher_id]"
+                            class="teacher-select w-full px-4 py-3.5
+                                   rounded-xl
+                                   border-2 border-gray-200
+                                   bg-white
+                                   outline-none
+                                   transition
+                                   focus:border-[#C89B3C]
+                                   focus:ring-4
+                                   focus:ring-[#C89B3C]/10"
+                            required
+                            disabled>
+
+                            <option value="">
+
+                                Sélectionner une matière d'abord
+
+                            </option>
 
                         </select>
 
+
+                        <p class="teacher-warning
+                                  mt-1 text-sm text-amber-600
+                                  hidden">
+
+                            Aucun enseignant actif pour cette matière.
+
+                        </p>
 
                     </div>
 
@@ -1142,7 +1313,6 @@
                     <!-- TYPE ABONNEMENT -->
 
                     <div>
-
 
                         <label class="block text-sm font-bold
                                       text-[#0B2A55]
@@ -1166,7 +1336,6 @@
                                    focus:ring-[#C89B3C]/10"
                             required>
 
-
                             <option value="">
 
                                 Sélectionner
@@ -1187,15 +1356,11 @@
 
                             </option>
 
-
                         </select>
-
 
                     </div>
 
-
                 </div>
-
             `;
 
 
@@ -1210,17 +1375,13 @@
                 row.querySelector('.payment-select');
 
 
+            const teacherSelect =
+                row.querySelector('.teacher-select');
+
+
             // =================================================
-            // RESTAURER LES ANCIENNES VALEURS
+            // RESTAURER ANCIENNES VALEURS
             // =================================================
-
-            if (data.subject_id) {
-
-                subjectSelect.value =
-                    data.subject_id;
-
-            }
-
 
             if (data.payment_type) {
 
@@ -1230,76 +1391,213 @@
             }
 
 
+            if (data.teacher_id) {
+
+                teacherSelect.dataset.restore =
+                    data.teacher_id;
+
+            }
+
+
             // =================================================
-            // FILTRER
+            // CHARGER LES MATIÈRES SELON LE NIVEAU
             // =================================================
 
-            filterSubjects(subjectSelect);
+            loadSubjectsForLevel(
+                subjectSelect,
+                data.subject_id ?? null
+            );
+
+
+            // =================================================
+            // CHANGEMENT MATIÈRE
+            // =================================================
+
+            subjectSelect.addEventListener(
+                'change',
+                function () {
+
+                    loadTeachers(
+                        subjectSelect,
+                        teacherSelect
+                    );
+
+                }
+            );
 
 
             // =================================================
             // SUPPRIMER
             // =================================================
 
-            row.querySelector('.remove-enrollment')
-                .addEventListener('click', function () {
+            row.querySelector(
+                '.remove-enrollment'
+            ).addEventListener(
+                'click',
+                function () {
 
                     row.remove();
 
                     updateNumbers();
 
-                });
+                }
+            );
 
         }
 
 
         // =====================================================
-        // FILTRER MATIÈRES PAR NIVEAU
+        // CHARGER LES ENSEIGNANTS
         // =====================================================
 
-        function filterSubjects(select) {
+        function loadTeachers(
+            subjectSelect,
+            teacherSelect
+        ) {
 
-            const level =
-                levelSelect.value;
-
-
-            const options =
-                select.querySelectorAll(
-                    'option[data-level]'
-                );
+            const subjectId =
+                subjectSelect.value;
 
 
-            options.forEach(option => {
-
-                if (
-                    level === '' ||
-                    option.dataset.level === level
-                ) {
-
-                    option.hidden = false;
-
-                } else {
-
-                    option.hidden = true;
-
-                }
-
-            });
+            const warning =
+                teacherSelect
+                    .parentElement
+                    .querySelector('.teacher-warning');
 
 
-            const selected =
-                select.options[select.selectedIndex];
+            teacherSelect.disabled = true;
+
+            warning.classList.add('hidden');
 
 
-            if (
-                selected &&
-                selected.dataset.level &&
-                selected.dataset.level !== level
-            ) {
+            if (!subjectId) {
 
-                select.value = '';
+                teacherSelect.innerHTML = `
+                    <option value="">
+                        Sélectionner une matière d'abord
+                    </option>
+                `;
+
+                return;
 
             }
+
+
+            teacherSelect.innerHTML = `
+                <option value="">
+                    Chargement...
+                </option>
+            `;
+
+
+            const url =
+                "{{ route('students.subjects.teachers', ['subject' => '__SUBJECT_ID__', 'level' => '__LEVEL__']) }}"
+                    .replace(
+                        '__SUBJECT_ID__',
+                        subjectId
+                    )
+                    .replace(
+                        '__LEVEL__',
+                        levelSelect.value
+                    );
+
+
+            fetch(url)
+
+                .then(response => {
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            'Erreur lors du chargement'
+                        );
+
+                    }
+
+                    return response.json();
+
+                })
+
+                .then(teachers => {
+
+                    if (
+                        !Array.isArray(teachers) ||
+                        teachers.length === 0
+                    ) {
+
+                        teacherSelect.innerHTML = `
+                            <option value="">
+                                Aucun enseignant disponible
+                            </option>
+                        `;
+
+                        warning.classList.remove('hidden');
+
+                        return;
+
+                    }
+
+
+                    teacherSelect.innerHTML = `
+                        <option value="">
+                            Sélectionner un enseignant
+                        </option>
+                    `;
+
+
+                    teachers.forEach(teacher => {
+
+                        const option =
+                            document.createElement('option');
+
+
+                        option.value =
+                            teacher.id;
+
+
+                        option.textContent =
+                            teacher.first_name +
+                            ' ' +
+                            teacher.last_name;
+
+
+                        teacherSelect.appendChild(
+                            option
+                        );
+
+                    });
+
+
+                    teacherSelect.disabled = false;
+
+
+                    const restore =
+                        teacherSelect.dataset.restore;
+
+
+                    if (restore) {
+
+                        teacherSelect.value =
+                            restore;
+
+                        delete teacherSelect.dataset.restore;
+
+                    }
+
+                })
+
+                .catch(error => {
+
+                    console.error(error);
+
+
+                    teacherSelect.innerHTML = `
+                        <option value="">
+                            Erreur de chargement
+                        </option>
+                    `;
+
+                });
 
         }
 
@@ -1320,7 +1618,44 @@
 
                 selects.forEach(select => {
 
-                    filterSubjects(select);
+                    const row =
+                        select.closest(
+                            '.enrollment-row'
+                        );
+
+
+                    const teacherSelect =
+                        row.querySelector(
+                            '.teacher-select'
+                        );
+
+
+                    // Reset enseignant
+
+                    teacherSelect.value = '';
+
+                    teacherSelect.disabled = true;
+
+                    teacherSelect.innerHTML = `
+                        <option value="">
+                            Sélectionner une matière d'abord
+                        </option>
+                    `;
+
+
+                    teacherSelect
+                        .parentElement
+                        .querySelector(
+                            '.teacher-warning'
+                        )
+                        .classList.add('hidden');
+
+
+                    // Recharger les matières
+
+                    loadSubjectsForLevel(
+                        select
+                    );
 
                 });
 
@@ -1335,6 +1670,20 @@
         addButton.addEventListener(
             'click',
             function () {
+
+                // Il faut choisir un niveau avant
+                if (!levelSelect.value) {
+
+                    alert(
+                        'Veuillez sélectionner le niveau scolaire avant d’ajouter une matière.'
+                    );
+
+                    levelSelect.focus();
+
+                    return;
+
+                }
+
 
                 createEnrollmentRow();
 
@@ -1354,36 +1703,38 @@
                 );
 
 
-            rows.forEach((row, index) => {
+            rows.forEach(
+                (row, index) => {
 
-                const number =
-                    row.querySelector(
-                        '.enrollment-number'
-                    );
-
-
-                const title =
-                    row.querySelector(
-                        '.enrollment-title'
-                    );
+                    const number =
+                        row.querySelector(
+                            '.enrollment-number'
+                        );
 
 
-                if (number) {
+                    const title =
+                        row.querySelector(
+                            '.enrollment-title'
+                        );
 
-                    number.textContent =
-                        index + 1;
+
+                    if (number) {
+
+                        number.textContent =
+                            index + 1;
+
+                    }
+
+
+                    if (title) {
+
+                        title.textContent =
+                            `Matière ${index + 1}`;
+
+                    }
 
                 }
-
-
-                if (title) {
-
-                    title.textContent =
-                        `Matière ${index + 1}`;
-
-                }
-
-            });
+            );
 
 
             if (rows.length === 0) {

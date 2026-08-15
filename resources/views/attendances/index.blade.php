@@ -522,19 +522,47 @@
                                         {{-- Action --}}
                                         <td class="px-6 py-4 text-center">
 
-                                            <a
-                                                href="{{ route('attendances.show', $attendance) }}"
-                                                class="inline-flex items-center
-                                                       px-3 py-2 rounded-lg
-                                                       text-white text-sm
-                                                       font-semibold
-                                                       hover:opacity-90
-                                                       transition"
-                                                style="background-color: #0B2A55;">
+                                            <div class="flex items-center justify-center gap-2">
 
-                                                Voir
+                                                <a
+                                                    href="{{ route('attendances.show', $attendance) }}"
+                                                    class="inline-flex items-center
+                                                           px-3 py-2 rounded-lg
+                                                           text-white text-sm
+                                                           font-semibold
+                                                           hover:opacity-90
+                                                           transition"
+                                                    style="background-color: #0B2A55;">
 
-                                            </a>
+                                                    👁️ Voir
+
+                                                </a>
+
+                                                <form
+                                                    method="POST"
+                                                    action="{{ route('attendances.destroy', $attendance) }}"
+                                                    onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette présence ?');"
+                                                >
+
+                                                    @csrf
+                                                    @method('DELETE')
+
+                                                    <button
+                                                        type="submit"
+                                                        class="inline-flex items-center
+                                                               px-3 py-2 rounded-lg
+                                                               bg-red-600 text-white text-sm
+                                                               font-semibold
+                                                               hover:bg-red-700
+                                                               transition">
+
+                                                        🗑️ Supprimer
+
+                                                    </button>
+
+                                                </form>
+
+                                            </div>
 
                                         </td>
 

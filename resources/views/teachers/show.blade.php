@@ -129,7 +129,7 @@
                             <p class="text-blue-100
                                       text-sm mt-2">
 
-                                {{ $teacher->speciality }}
+                                {{ $teacher->subjects->pluck('name')->join(', ') ?: $teacher->speciality }}
 
                             </p>
 
@@ -298,14 +298,14 @@
                                       uppercase tracking-wider
                                       text-[#8B691F]">
 
-                                Spécialité
+                                Matières enseignées
 
                             </p>
 
                             <p class="mt-2 text-lg font-extrabold
                                       text-[#0B2A55]">
 
-                                {{ $teacher->speciality }}
+                                {{ $teacher->subjects->pluck('name')->join(', ') ?: $teacher->speciality }}
 
                             </p>
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Subject;
+use App\Models\Teacher;
 use Illuminate\Http\Request;
 
 class SubjectController extends Controller
@@ -32,20 +33,55 @@ class SubjectController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:100',
+
             'code' => 'required|string|max:50|unique:subjects,code',
+
             'description' => 'nullable|string',
-            'level' => 'required|string|max:100',
+
+            'primaire' => 'nullable|boolean',
+
+            'moyen' => 'nullable|boolean',
+
+            'lycee' => 'nullable|boolean',
+
             'hours_per_week' => 'required|integer|min:1|max:40',
+
             'active' => 'nullable|boolean',
         ]);
 
+        // Les cases à cocher
+        $validated['primaire'] = $request->has('primaire');
+
+        $validated['moyen'] = $request->has('moyen');
+
+        $validated['lycee'] = $request->has('lycee');
+
         $validated['active'] = $request->has('active');
+
+        // Ancien champ conservé pour compatibilité
+        $validated['level'] = 'all';
+
+        // Vérifier qu'au moins un cycle est sélectionné
+        if (
+            ! $validated['primaire'] &&
+            ! $validated['moyen'] &&
+            ! $validated['lycee']
+        ) {
+            return back()
+                ->withErrors([
+                    'cycle' => 'Veuillez sélectionner au moins un cycle scolaire.',
+                ])
+                ->withInput();
+        }
 
         Subject::create($validated);
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'Matière ajoutée avec succès.');
+            ->with(
+                'success',
+                'Matière ajoutée avec succès.'
+            );
     }
 
     /**
@@ -53,7 +89,10 @@ class SubjectController extends Controller
      */
     public function show(Subject $subject)
     {
-        return view('subjects.show', compact('subject'));
+        return view(
+            'subjects.show',
+            compact('subject')
+        );
     }
 
     /**
@@ -61,47 +100,95 @@ class SubjectController extends Controller
      */
     public function edit(Subject $subject)
     {
-        return view('subjects.edit', compact('subject'));
+        return view(
+            'subjects.edit',
+            compact('subject')
+        );
     }
 
     /**
      * Mettre à jour une matière
      */
-    public function update(Request $request, Subject $subject)
-    {
+    public function update(
+        Request $request,
+        Subject $subject
+    ) {
         $validated = $request->validate([
             'name' => 'required|string|max:100',
-            'code' => 'required|string|max:50|unique:subjects,code,' . $subject->id,
+
+            'code' => 'required|string|max:50|unique:subjects,code,'.$subject->id,
+
             'description' => 'nullable|string',
-            'level' => 'required|string|max:100',
+
+            'primaire' => 'nullable|boolean',
+
+            'moyen' => 'nullable|boolean',
+
+            'lycee' => 'nullable|boolean',
+
             'hours_per_week' => 'required|integer|min:1|max:40',
+
             'active' => 'nullable|boolean',
         ]);
 
-        $validated['active'] = $request->has('active');
+        // Cycles
+        $validated['primaire'] =
+            $request->has('primaire');
+
+        $validated['moyen'] =
+            $request->has('moyen');
+
+        $validated['lycee'] =
+            $request->has('lycee');
+
+        // Statut
+        $validated['active'] =
+            $request->has('active');
+
+        // Ancien champ conservé
+        $validated['level'] = 'all';
+
+        // Au moins un cycle
+        if (
+            ! $validated['primaire'] &&
+            ! $validated['moyen'] &&
+            ! $validated['lycee']
+        ) {
+            return back()
+                ->withErrors([
+                    'cycle' => 'Veuillez sélectionner au moins un cycle scolaire.',
+                ])
+                ->withInput();
+        }
 
         $subject->update($validated);
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'Matière modifiée avec succès.');
+            ->with(
+                'success',
+                'Matière modifiée avec succès.'
+            );
     }
 
+    /**
+     * Récupérer les enseignants d'une matière
+     */
     public function teachers(Subject $subject)
-{
-    $teachers = $subject->teachers()
-        ->where('teachers.active', true)
-        ->orderBy('first_name')
-        ->orderBy('last_name')
-        ->get([
-            'teachers.id',
-            'teachers.first_name',
-            'teachers.last_name',
-            'teachers.speciality',
-        ]);
+    {
+        $teachers = $subject->teachers()
+            ->where('teachers.active', true)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get([
+                'teachers.id',
+                'teachers.first_name',
+                'teachers.last_name',
+            ]);
 
-    return response()->json($teachers);
-} 
+        return response()->json($teachers);
+    }
+
     /**
      * Supprimer une matière
      */
@@ -111,33 +198,56 @@ class SubjectController extends Controller
 
         return redirect()
             ->route('subjects.index')
-            ->with('success', 'Matière supprimée avec succès.');
+            ->with(
+                'success',
+                'Matière supprimée avec succès.'
+            );
     }
 
+    /**
+     * Formulaire gestion des enseignants
+     */
     public function editTeachers(Subject $subject)
-{
-    $teachers = \App\Models\Teacher::where('active', true)
-        ->orderBy('first_name')
-        ->orderBy('last_name')
-        ->get();
+    {
+        $teachers = Teacher::with('subjects')
+            ->where(
+                'active',
+                true
+            )
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
 
-    $subject->load('teachers');
+        $subject->load('teachers');
 
-    return view('subjects.teachers', compact('subject', 'teachers'));
-}
+        return view(
+            'subjects.teachers',
+            compact('subject', 'teachers')
+        );
+    }
 
+    /**
+     * Mettre à jour les enseignants
+     */
+    public function updateTeachers(
+        Request $request,
+        Subject $subject
+    ) {
+        $validated = $request->validate([
+            'teachers' => 'nullable|array',
 
-public function updateTeachers(Request $request, Subject $subject)
-{
-    $validated = $request->validate([
-        'teachers' => 'nullable|array',
-        'teachers.*' => 'exists:teachers,id',
-    ]);
+            'teachers.*' => 'exists:teachers,id',
+        ]);
 
-    $subject->teachers()->sync($validated['teachers'] ?? []);
+        $subject->teachers()->sync(
+            $validated['teachers'] ?? []
+        );
 
-    return redirect()
-        ->route('subjects.index')
-        ->with('success', 'Les enseignants de la matière ont été mis à jour avec succès.');
-}
+        return redirect()
+            ->route('subjects.index')
+            ->with(
+                'success',
+                'Les enseignants de la matière ont été mis à jour avec succès.'
+            );
+    }
 }

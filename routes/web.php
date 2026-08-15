@@ -1,18 +1,22 @@
 <?php
 
-use App\Http\Controllers\TeacherController;
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\StudentController;
-use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\ClassSessionController;
+use App\Http\Controllers\LevelController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSignalementController;
-use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
-use App\Http\Controllers\ClassSessionController;
-use App\Http\Controllers\AnnouncementController;
-use App\Http\Controllers\LevelController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\TeacherController;
+use App\Models\Enrollment;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\Teacher;
 use Illuminate\Support\Facades\Route;
-
 
 // ==========================================================
 // PAGE D'ACCUEIL
@@ -22,35 +26,32 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-
 // ==========================================================
 // DASHBOARD ADMIN
 // ==========================================================
 
 Route::get('/dashboard', function () {
 
-    $studentsCount = \App\Models\Student::count();
+    $studentsCount = Student::count();
 
-    $teachersCount = \App\Models\Teacher::count();
+    $teachersCount = Teacher::count();
 
-    $subjectsCount = \App\Models\Subject::count();
+    $subjectsCount = Subject::count();
 
-    $enrollmentsCount = \App\Models\Enrollment::where(
+    $enrollmentsCount = Enrollment::where(
         'status',
         'active'
     )->count();
 
-
     // Dernières inscriptions
-    $latestEnrollments = \App\Models\Enrollment::with([
+    $latestEnrollments = Enrollment::with([
         'student',
         'subject',
-        'teacher'
+        'teacher',
     ])
         ->latest()
         ->take(5)
         ->get();
-
 
     return view('dashboard', compact(
         'studentsCount',
@@ -61,15 +62,13 @@ Route::get('/dashboard', function () {
     ));
 
 })->middleware(['auth', 'verified'])
-  ->name('dashboard');
-
+    ->name('dashboard');
 
 // ==========================================================
 // ROUTES AUTHENTIFIÉES
 // ==========================================================
 
 Route::middleware('auth')->group(function () {
-
 
     // ======================================================
     // PAIEMENTS
@@ -80,7 +79,6 @@ Route::middleware('auth')->group(function () {
         [PaymentController::class, 'unpaid']
     )->name('payments.unpaid');
 
-
     Route::resource(
         'payments',
         PaymentController::class
@@ -88,15 +86,13 @@ Route::middleware('auth')->group(function () {
         'index',
         'create',
         'store',
-        'show'
+        'show',
     ]);
-
 
     Route::get(
         '/payments/{payment}/print',
         [PaymentController::class, 'print']
     )->name('payments.print');
-
 
     // ======================================================
     // PROFILE
@@ -107,18 +103,15 @@ Route::middleware('auth')->group(function () {
         [ProfileController::class, 'edit']
     )->name('profile.edit');
 
-
     Route::patch(
         '/profile',
         [ProfileController::class, 'update']
     )->name('profile.update');
 
-
     Route::delete(
         '/profile',
         [ProfileController::class, 'destroy']
     )->name('profile.destroy');
-
 
     // ======================================================
     // ENSEIGNANTS
@@ -129,7 +122,6 @@ Route::middleware('auth')->group(function () {
         TeacherController::class
     );
 
-
     // ======================================================
     // MATIÈRES
     // ======================================================
@@ -139,19 +131,16 @@ Route::middleware('auth')->group(function () {
         SubjectController::class
     );
 
-
     // Gestion des enseignants d'une matière
     Route::get(
         '/subjects/{subject}/teachers/manage',
         [SubjectController::class, 'editTeachers']
     )->name('subjects.teachers.edit');
 
-
     Route::put(
         '/subjects/{subject}/teachers',
         [SubjectController::class, 'updateTeachers']
     )->name('subjects.teachers.update');
-
 
     // ======================================================
     // ÉLÈVES
@@ -164,19 +153,16 @@ Route::middleware('auth')->group(function () {
         [StudentController::class, 'accounts']
     )->name('students.accounts');
 
-
     // Création du compte élève
     Route::get(
         '/students/{student}/account/create',
         [StudentController::class, 'createAccount']
     )->name('students.account.create');
 
-
     Route::post(
         '/students/{student}/account',
         [StudentController::class, 'storeAccount']
     )->name('students.account.store');
-
 
     // Ressource élèves
     Route::resource(
@@ -184,14 +170,13 @@ Route::middleware('auth')->group(function () {
         StudentController::class
     );
 
-
     // ======================================================
     // MATIÈRES SELON LE NIVEAU SCOLAIRE
     // ======================================================
-Route::get(
-    '/levels/{level}/subjects',
-    [StudentController::class, 'getSubjectsByLevel']
-)->name('subjects.by-level');
+    Route::get(
+        '/levels/{level}/subjects',
+        [StudentController::class, 'getSubjectsByLevel']
+    )->name('subjects.by-level');
 
     // ======================================================
     // ENSEIGNANTS SELON LA MATIÈRE
@@ -202,7 +187,6 @@ Route::get(
         [StudentController::class, 'getTeachersBySubject']
     )->name('students.subjects.teachers');
 
-
     // ======================================================
     // PAYMENT SIGNALEMENTS
     // ======================================================
@@ -212,30 +196,25 @@ Route::get(
         [PaymentSignalementController::class, 'index']
     )->name('payment-signalements.index');
 
-
     Route::post(
         '/payment-signalements/generate',
         [PaymentSignalementController::class, 'generate']
     )->name('payment-signalements.generate');
-
 
     Route::get(
         '/payment-signalements/{paymentSignalement}',
         [PaymentSignalementController::class, 'show']
     )->name('payment-signalements.show');
 
-
     Route::patch(
         '/payment-signalements/{paymentSignalement}/sent',
         [PaymentSignalementController::class, 'markAsSent']
     )->name('payment-signalements.sent');
 
-
     Route::patch(
         '/payment-signalements/{paymentSignalement}/resolved',
         [PaymentSignalementController::class, 'markAsResolved']
     )->name('payment-signalements.resolved');
-
 
     // ======================================================
     // PRÉSENCES
@@ -246,48 +225,47 @@ Route::get(
         [AttendanceController::class, 'index']
     )->name('attendances.index');
 
-
     Route::get(
         '/attendances/create',
         [AttendanceController::class, 'create']
     )->name('attendances.create');
-
 
     Route::post(
         '/attendances',
         [AttendanceController::class, 'store']
     )->name('attendances.store');
 
+    // Élèves inscrits à une matière + un enseignant
+    // IMPORTANT : avant Route::get('/attendances/{attendance}')
+    Route::get(
+        '/attendances/students',
+        [AttendanceController::class, 'students']
+    )->name('attendances.students');
 
     Route::get(
         '/attendances/{attendance}',
         [AttendanceController::class, 'show']
     )->name('attendances.show');
 
-
     Route::get(
         '/attendances/{attendance}/edit',
         [AttendanceController::class, 'edit']
     )->name('attendances.edit');
-
 
     Route::put(
         '/attendances/{attendance}',
         [AttendanceController::class, 'update']
     )->name('attendances.update');
 
-
     Route::delete(
         '/attendances/{attendance}',
         [AttendanceController::class, 'destroy']
     )->name('attendances.destroy');
 
-
     Route::get(
         '/attendances/{attendance}/print',
         [AttendanceController::class, 'print']
     )->name('attendances.print');
-
 
     // ======================================================
     // SÉANCES / PLANNING
@@ -298,7 +276,6 @@ Route::get(
         ClassSessionController::class
     )->except(['show']);
 
-
     // ======================================================
     // ANNONCES
     // ======================================================
@@ -307,7 +284,6 @@ Route::get(
         'announcements',
         AnnouncementController::class
     );
-
 
     // ======================================================
     // NIVEAUX SCOLAIRES
@@ -319,7 +295,6 @@ Route::get(
     );
 
 });
-
 
 // ==========================================================
 // ESPACE ÉLÈVE
@@ -342,22 +317,22 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::get(
         '/admins',
-        [\App\Http\Controllers\AdminController::class, 'index']
+        [AdminController::class, 'index']
     )->name('admins.index');
 
     Route::get(
         '/admins/create',
-        [\App\Http\Controllers\AdminController::class, 'create']
+        [AdminController::class, 'create']
     )->name('admins.create');
 
     Route::post(
         '/admins',
-        [\App\Http\Controllers\AdminController::class, 'store']
+        [AdminController::class, 'store']
     )->name('admins.store');
 
     Route::delete(
         '/admins/{user}',
-        [\App\Http\Controllers\AdminController::class, 'destroy']
+        [AdminController::class, 'destroy']
     )->name('admins.destroy');
 
 });

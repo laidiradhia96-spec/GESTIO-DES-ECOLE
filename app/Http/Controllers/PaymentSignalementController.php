@@ -2,38 +2,71 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
 use App\Models\PaymentSignalement;
 use App\Models\Subject;
+use App\Services\PaymentSignalementService;
+use App\Services\UnpaidDebtService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 class PaymentSignalementController extends Controller
 {
     /**
-     * Liste des signalements d'impayés
+     * Liste des impayés actifs, calculée dynamiquement
+     * (Attendance + Enrollment + Payment) — lecture seule.
      */
     public function index(Request $request)
     {
-        $query = PaymentSignalement::with([
-            'student',
-            'payment',
-            'subject',
-        ]);
+        $service = app(UnpaidDebtService::class);
 
         // =========================
-        // RECHERCHE
+        // ANNÉE + PÉRIODE
+        // =========================
+
+        $years = $service->availableYears();
+
+        $year = $request->filled('year') ? (int) $request->year : (int) now()->format('Y');
+
+        $period = $request->filled('period') ? $request->period : null;
+
+        $status = $request->filled('status') ? $request->status : null;
+
+        // =========================
+        // MOIS DE L'ANNÉE SÉLECTIONNÉE
+        // =========================
+
+        $months = collect(range(1, 12))->map(function (int $month) use ($year) {
+
+            return [
+                'value' => $year.'-'.str_pad((string) $month, 2, '0', STR_PAD_LEFT),
+                'label' => $this->monthName($month).' '.$year,
+            ];
+        })->all();
+
+        // =========================
+        // LIGNES D'IMPAYÉS (DYNAMIQUES)
+        // =========================
+
+        $rows = $status === 'resolved'
+            ? $service->resolvedHistory($year, $period)
+            : $service->activeDebts($year, $period);
+
+        // =========================
+        // RECHERCHE ÉLÈVE / PARENT
         // =========================
 
         if ($request->filled('search')) {
 
-            $search = trim($request->search);
+            $search = mb_strtolower(trim($request->search));
 
-            $query->whereHas('student', function ($q) use ($search) {
+            $rows = $rows->filter(function ($row) use ($search) {
 
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('parent_name', 'like', "%{$search}%");
+                $student = $row->student;
+
+                return $student
+                    && (mb_strpos(mb_strtolower((string) $student->first_name), $search) !== false
+                        || mb_strpos(mb_strtolower((string) $student->last_name), $search) !== false
+                        || mb_strpos(mb_strtolower((string) $student->parent_name), $search) !== false);
             });
         }
 
@@ -43,38 +76,24 @@ class PaymentSignalementController extends Controller
 
         if ($request->filled('subject_id')) {
 
-            $query->where(
-                'subject_id',
-                $request->subject_id
-            );
-        }
+            $rows = $rows->filter(function ($row) use ($request) {
 
-        // =========================
-        // FILTRE PÉRIODE
-        // =========================
-
-        if ($request->filled('period')) {
-
-            $query->where(
-                'period',
-                $request->period
-            );
+                return $row->subject
+                    && (int) $row->subject->id === (int) $request->subject_id;
+            });
         }
 
         // =========================
         // FILTRE STATUT
         // =========================
 
-        if ($request->filled('status')) {
+        if (in_array($status, ['pending', 'sent'], true)) {
 
-            $query->where(
-                'status',
-                $request->status
-            );
+            $rows = $rows->filter(fn ($row) => $row->status === $status);
         }
 
         // =========================
-        // STATISTIQUES
+        // STATISTIQUES (enregistrements stockés)
         // =========================
 
         $pendingCount = PaymentSignalement::where(
@@ -98,14 +117,36 @@ class PaymentSignalementController extends Controller
         )->sum('amount_remaining');
 
         // =========================
-        // LISTE
+        // PAGINATION
         // =========================
 
-        $signalements = $query
-            ->latest('signalement_date')
-            ->latest('id')
-            ->paginate(10)
-            ->withQueryString();
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        $perPage = 10;
+
+        $signalements = new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+                'query' => $request->query(),
+            ]
+        );
+
+        // =========================
+        // LIBELLÉS DE PÉRIODE (AFFICHAGE)
+        // =========================
+
+        $signalements->getCollection()->transform(function ($row) {
+
+            $row->period_label = $this->formatPeriod(
+                (string) $row->period
+            );
+
+            return $row;
+        });
 
         // =========================
         // MATIÈRES
@@ -118,6 +159,9 @@ class PaymentSignalementController extends Controller
             compact(
                 'signalements',
                 'subjects',
+                'months',
+                'years',
+                'year',
                 'pendingCount',
                 'sentCount',
                 'resolvedCount',
@@ -126,85 +170,33 @@ class PaymentSignalementController extends Controller
         );
     }
 
-
     /**
-     * Créer automatiquement les signalements
-     * pour les paiements avec un reste à payer.
+     * Génération automatique des signalements
+     *
+     * RÈGLES :
+     *
+     * MENSUEL :
+     * - Une seule obligation par élève + matière + mois/année.
+     * - Aucun paiement pour le mois  → un signalement impayé.
+     * - Paiement couvrant le mois     → signalement résolu.
+     * - Paiement partiel              → signalement avec le reste.
+     *
+     * VIP :
+     * - Une obligation par élève + matière + journée exacte.
+     * - Une dette d'une journée n'est jamais réglée par le paiement
+     *   d'une autre journée.
      */
     public function generate()
-{
-    $payments = Payment::with([
-        'student',
-        'subject',
-    ])
-        ->where('remaining_amount', '>', 0)
-        ->get();
+    {
+        app(PaymentSignalementService::class)->regenerateAll();
 
-    $created = 0;
-
-    DB::transaction(function () use ($payments, &$created) {
-
-        foreach ($payments as $payment) {
-
-            // إذا كان الدفع غير مرتبط بمادة نتجاهله
-            if (!$payment->subject_id) {
-                continue;
-            }
-
-            // منع إنشاء نفس signalement أكثر من مرة
-            $exists = PaymentSignalement::where(
-                'payment_id',
-                $payment->id
-            )->exists();
-
-            if (!$exists) {
-
-                PaymentSignalement::create([
-
-                    'student_id' =>
-                        $payment->student_id,
-
-                    'subject_id' =>
-                        $payment->subject_id,
-
-                    'payment_id' =>
-                        $payment->id,
-
-                    'period' =>
-                        $payment->period,
-
-                    'amount_remaining' =>
-                        $payment->remaining_amount,
-
-                    'status' =>
-                        'pending',
-
-                    'signalement_date' =>
-                        now()->toDateString(),
-
-                    'attendance_date' =>
-                        null,
-
-                    'sent_at' =>
-                        null,
-
-                    'note' =>
-                        null,
-                ]);
-
-                $created++;
-            }
-        }
-    });
-
-    return redirect()
-        ->route('payment-signalements.index')
-        ->with(
-            'success',
-            $created . " signalement(s) d'impayé généré(s) avec succès."
-        );
-}
-
+        return redirect()
+            ->route('payment-signalements.index')
+            ->with(
+                'success',
+                'Les signalements d\'impayés ont été actualisés avec succès.'
+            );
+    }
 
     /**
      * Afficher un signalement
@@ -225,7 +217,6 @@ class PaymentSignalementController extends Controller
         );
     }
 
-
     /**
      * Marquer un signalement comme envoyé
      */
@@ -235,11 +226,9 @@ class PaymentSignalementController extends Controller
 
         $paymentSignalement->update([
 
-            'status' =>
-                'sent',
+            'status' => 'sent',
 
-            'sent_at' =>
-                now(),
+            'sent_at' => now(),
         ]);
 
         return redirect()
@@ -250,7 +239,6 @@ class PaymentSignalementController extends Controller
             );
     }
 
-
     /**
      * Marquer un signalement comme résolu
      */
@@ -260,8 +248,9 @@ class PaymentSignalementController extends Controller
 
         $paymentSignalement->update([
 
-            'status' =>
-                'resolved',
+            'status' => 'resolved',
+
+            'amount_remaining' => 0,
         ]);
 
         return redirect()
@@ -270,5 +259,51 @@ class PaymentSignalementController extends Controller
                 'success',
                 'Le signalement a été marqué comme résolu.'
             );
+    }
+
+    /**
+     * Nom du mois en français (affichage uniquement).
+     */
+    private function monthName(int $month): string
+    {
+        return match ($month) {
+            1 => 'Janvier',
+            2 => 'Février',
+            3 => 'Mars',
+            4 => 'Avril',
+            5 => 'Mai',
+            6 => 'Juin',
+            7 => 'Juillet',
+            8 => 'Août',
+            9 => 'Septembre',
+            10 => 'Octobre',
+            11 => 'Novembre',
+            12 => 'Décembre',
+            default => '',
+        };
+    }
+
+    /**
+     * Libellé lisible d'une période :
+     * "2026-08" → "Août 2026", "2026-08-05" → "05 Août 2026".
+     */
+    private function formatPeriod(string $period): string
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $period)) {
+
+            [$year, $month, $day] = array_map('intval', explode('-', $period));
+
+            return str_pad((string) $day, 2, '0', STR_PAD_LEFT)
+                .' '.$this->monthName($month).' '.$year;
+        }
+
+        if (preg_match('/^\d{4}-\d{2}$/', $period)) {
+
+            [$year, $month] = array_map('intval', explode('-', $period));
+
+            return $this->monthName($month).' '.$year;
+        }
+
+        return $period;
     }
 }

@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\Subject;
-use App\Models\Teacher;
-use App\Models\Enrollment;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +44,6 @@ class StudentController extends Controller
         return view('students.index', compact('students'));
     }
 
-
     /**
      * Liste des comptes élèves
      */
@@ -58,207 +56,316 @@ class StudentController extends Controller
         return view('students.accounts', compact('students'));
     }
 
-
     /**
      * Formulaire d'ajout
      */
     public function create()
     {
-        $subjects = Subject::where('active', true)
-            ->orderBy('level')
-            ->orderBy('name')
-            ->get();
-
-        return view('students.create', compact('subjects'));
+        return view('students.create');
     }
 
+    /**
+     * Déterminer le cycle à partir du niveau scolaire
+     */
+    private function getCycleFromLevel(string $level): ?string
+    {
+        $level = strtoupper(trim($level));
+
+        if (in_array($level, [
+            '1AP',
+            '2AP',
+            '3AP',
+            '4AP',
+            '5AP',
+        ])) {
+            return 'primaire';
+        }
+
+        if (in_array($level, [
+            '1AM',
+            '2AM',
+            '3AM',
+            '4AM',
+        ])) {
+            return 'moyen';
+        }
+
+        if (in_array($level, [
+            '1AS',
+            '2AS',
+            '3AS',
+        ])) {
+            return 'lycee';
+        }
+
+        return null;
+    }
 
     /**
-     * Récupérer les matières selon le niveau
+     * Code du cycle dans la table levels (PRI / MOY / SEC).
+     *
+     * Les codes 1AP, 2AM... sont des niveaux scolaires, pas des cycles.
+     */
+    private function cycleCodeForLevel(string $level): ?string
+    {
+        return match ($this->getCycleFromLevel($level)) {
+            'primaire' => 'PRI',
+            'moyen' => 'MOY',
+            'lycee' => 'SEC',
+            default => null,
+        };
+    }
+
+    /**
+     * Récupérer les matières selon le niveau scolaire
+     *
+     * Exemple :
+     * 3AM -> Moyen -> matières où moyen = true
      */
     public function getSubjectsByLevel($level)
     {
-        $subjects = Subject::where('level', $level)
-            ->where('active', true)
+        $cycle = $this->getCycleFromLevel($level);
+
+        if (! $cycle) {
+            return response()->json([
+                'message' => 'Niveau scolaire invalide.',
+            ], 422);
+        }
+
+        $subjects = Subject::where('active', true)
+            ->where($cycle, true)
             ->orderBy('name')
             ->get([
                 'id',
                 'name',
                 'code',
                 'level',
+                'primaire',
+                'moyen',
+                'lycee',
             ]);
 
         return response()->json($subjects);
     }
 
-
     /**
      * Récupérer les enseignants selon la matière
      */
-    public function getTeachersBySubject(Subject $subject)
+    /**
+     * Récupérer les enseignants d'une matière
+     * selon le niveau scolaire de l'élève
+     */
+    public function getTeachersBySubject(Request $request, Subject $subject)
     {
+        $level = $request->query('level');
+
+        if (! $level) {
+            return response()->json([
+                'message' => 'Le niveau scolaire est obligatoire.',
+            ], 422);
+        }
+
+        $level = strtoupper(trim($level));
+
+        // Code du cycle réel : la table levels contient PRI / MOY / SEC.
+        $cycle = $this->getCycleFromLevel($level);
+
+        $cycleCode = $this->cycleCodeForLevel($level);
+
+        if (! $cycleCode) {
+            return response()->json([
+                'message' => 'Niveau scolaire invalide.',
+            ], 422);
+        }
+
+        if (! $subject->active || ! $subject->{$cycle}) {
+            return response()->json([]);
+        }
+
+        /*
+         * نجيب فقط الأساتذة:
+         *
+         * 1. مربوطين بالمادة
+         * 2. Active
+         * 3. عندهم Niveau داخل نفس Cycle
+         */
         $teachers = $subject->teachers()
             ->where('teachers.active', true)
+            ->whereHas('levels', function ($query) use ($cycleCode) {
+                $query->where('code', $cycleCode)
+                    ->where('active', true);
+            })
             ->orderBy('first_name')
             ->orderBy('last_name')
             ->get([
                 'teachers.id',
                 'teachers.first_name',
                 'teachers.last_name',
-                'teachers.speciality',
             ]);
 
         return response()->json($teachers);
     }
 
+    /**
+     * Enregistrer un nouvel élève
+     */
+    public function store(Request $request)
+    {
+        // =====================================================
+        // VALIDATION ÉLÈVE
+        // =====================================================
 
-   /**
- * Enregistrer un nouvel élève
- */
-public function store(Request $request)
-{
-    $validated = $request->validate([
-        // =========================
-        // INFORMATIONS ÉLÈVE
-        // =========================
-        'first_name' => 'required|string|max:100',
-        'last_name' => 'required|string|max:100',
-        'date_of_birth' => 'nullable|date',
-        'phone' => 'nullable|string|max:30',
-        'address' => 'nullable|string',
-        'level' => 'required|string|max:100',
-        'parent_name' => 'nullable|string|max:150',
-        'parent_phone' => 'nullable|string|max:30',
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
 
-        // =========================
-        // INSCRIPTIONS
-        // =========================
-        'enrollments' => 'required|array|min:1',
+            'date_of_birth' => 'nullable|date',
 
-        'enrollments.*.subject_id' => [
-            'required',
-            'exists:subjects,id',
-        ],
+            'phone' => 'nullable|string|max:30',
 
-        'enrollments.*.teacher_id' => [
-            'required',
-            'exists:teachers,id',
-        ],
+            'address' => 'nullable|string',
 
-        'enrollments.*.payment_type' => [
-            'required',
-            'in:monthly,vip',
-        ],
-    ], [
-        'enrollments.required' =>
-            'Veuillez ajouter au moins une matière.',
+            'level' => 'required|string|max:100',
 
-        'enrollments.*.subject_id.required' =>
-            'Veuillez sélectionner une matière.',
+            'parent_name' => 'nullable|string|max:150',
 
-        'enrollments.*.teacher_id.required' =>
-            'Veuillez sélectionner un enseignant.',
+            'parent_phone' => 'nullable|string|max:30',
 
-        'enrollments.*.payment_type.required' =>
-            'Veuillez sélectionner un type d’abonnement.',
-    ]);
+            // =================================================
+            // INSCRIPTIONS
+            // =================================================
 
+            'enrollments' => 'required|array|min:1',
 
-    // =====================================================
-    // VÉRIFIER CHAQUE INSCRIPTION
-    // =====================================================
+            'enrollments.*.subject_id' => 'required|exists:subjects,id',
 
-    foreach ($validated['enrollments'] as $index => $enrollment) {
+            'enrollments.*.teacher_id' => 'required|exists:teachers,id',
 
-        // =========================
-        // Vérifier la matière
-        // =========================
+            'enrollments.*.payment_type' => 'required|string|max:50',
+        ], [
+            'enrollments.required' => 'Veuillez ajouter au moins une matière.',
 
-        $subject = Subject::where('id', $enrollment['subject_id'])
-            ->where('level', $validated['level'])
-            ->where('active', true)
-            ->first();
+            'enrollments.min' => 'Veuillez ajouter au moins une matière.',
 
-        if (!$subject) {
+            'enrollments.*.subject_id.required' => 'Veuillez sélectionner une matière.',
 
-            return back()
-                ->withErrors([
-                    "enrollments.$index.subject_id" =>
-                        "La matière sélectionnée pour l'inscription " .
-                        ($index + 1) .
-                        " ne correspond pas au niveau scolaire choisi."
-                ])
-                ->withInput();
-        }
+            'enrollments.*.teacher_id.required' => 'Veuillez sélectionner un enseignant.',
 
-
-        // =========================
-        // Vérifier l'enseignant
-        // =========================
-
-        $teacherExists = $subject->teachers()
-            ->where('teachers.id', $enrollment['teacher_id'])
-            ->where('teachers.active', true)
-            ->exists();
-
-        if (!$teacherExists) {
-
-            return back()
-                ->withErrors([
-                    "enrollments.$index.teacher_id" =>
-                        "L'enseignant sélectionné pour l'inscription " .
-                        ($index + 1) .
-                        " ne correspond pas à cette matière."
-                ])
-                ->withInput();
-        }
-    }
-
-
-    // =====================================================
-    // CRÉER L'ÉLÈVE
-    // =====================================================
-
-    $student = Student::create([
-        'first_name' => $validated['first_name'],
-        'last_name' => $validated['last_name'],
-        'date_of_birth' => $validated['date_of_birth'] ?? null,
-        'phone' => $validated['phone'] ?? null,
-        'address' => $validated['address'] ?? null,
-        'level' => $validated['level'],
-        'parent_name' => $validated['parent_name'] ?? null,
-        'parent_phone' => $validated['parent_phone'] ?? null,
-    ]);
-
-
-    // =====================================================
-    // CRÉER LES INSCRIPTIONS
-    // =====================================================
-
-    foreach ($validated['enrollments'] as $enrollment) {
-
-        Enrollment::create([
-            'student_id' => $student->id,
-            'subject_id' => $enrollment['subject_id'],
-            'teacher_id' => $enrollment['teacher_id'],
-            'start_date' => now()->toDateString(),
-            'status' => 'active',
-            'payment_type' => $enrollment['payment_type'],
+            'enrollments.*.payment_type.required' => 'Veuillez sélectionner un type d’abonnement.',
         ]);
+
+        // =====================================================
+        // DÉTERMINER LE CYCLE
+        // =====================================================
+
+        $cycle = $this->getCycleFromLevel($validated['level']);
+
+        if (! $cycle) {
+            return back()
+                ->withErrors([
+                    'level' => 'Le niveau scolaire sélectionné est invalide.',
+                ])
+                ->withInput();
+        }
+
+        // =====================================================
+        // VÉRIFIER CHAQUE INSCRIPTION
+        // =====================================================
+
+        foreach ($validated['enrollments'] as $index => $enrollment) {
+
+            // =================================================
+            // VÉRIFIER LA MATIÈRE
+            // =================================================
+
+            $subject = Subject::where('id', $enrollment['subject_id'])
+                ->where('active', true)
+                ->where($cycle, true)
+                ->first();
+
+            if (! $subject) {
+
+                return back()
+                    ->withErrors([
+                        "enrollments.$index.subject_id" => "La matière sélectionnée pour l'inscription "
+                            .($index + 1)
+                            ." n'est pas disponible pour le niveau "
+                            .$validated['level']
+                            .'.',
+                    ])
+                    ->withInput();
+            }
+
+            // =================================================
+            // VÉRIFIER L'ENSEIGNANT
+            // =================================================
+
+            $cycleCode = $this->cycleCodeForLevel($validated['level']);
+
+            $teacherExists = $subject->teachers()
+                ->where('teachers.id', $enrollment['teacher_id'])
+                ->where('teachers.active', true)
+                ->whereHas('levels', function ($query) use ($cycleCode) {
+                    $query->where('code', $cycleCode)
+                        ->where('active', true);
+                })
+                ->exists();
+
+            if (! $teacherExists) {
+
+                return back()
+                    ->withErrors([
+                        "enrollments.$index.teacher_id" => "L'enseignant sélectionné pour l'inscription "
+                            .($index + 1)
+                            .' ne correspond pas à cette matière.',
+                    ])
+                    ->withInput();
+            }
+        }
+
+        // =====================================================
+        // CRÉER L'ÉLÈVE + INSCRIPTIONS
+        // =====================================================
+
+        $student = DB::transaction(function () use ($validated) {
+
+            $student = Student::create([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
+                'level' => $validated['level'],
+                'parent_name' => $validated['parent_name'] ?? null,
+                'parent_phone' => $validated['parent_phone'] ?? null,
+            ]);
+
+            foreach ($validated['enrollments'] as $enrollment) {
+
+                Enrollment::create([
+                    'student_id' => $student->id,
+                    'subject_id' => $enrollment['subject_id'],
+                    'teacher_id' => $enrollment['teacher_id'],
+                    'start_date' => now()->toDateString(),
+                    'status' => 'active',
+                    'payment_type' => $enrollment['payment_type'],
+                ]);
+            }
+
+            return $student;
+        });
+
+        // =====================================================
+        // REDIRECTION
+        // =====================================================
+
+        return redirect()
+            ->route('students.index')
+            ->with(
+                'success',
+                'Élève et inscriptions ajoutés avec succès.'
+            );
     }
-
-
-    // =====================================================
-    // REDIRECTION
-    // =====================================================
-
-    return redirect()
-        ->route('students.index')
-        ->with(
-            'success',
-            'Élève et inscriptions ajoutés avec succès.'
-        );
-}
 
     /**
      * Afficher un élève
@@ -275,7 +382,6 @@ public function store(Request $request)
             compact('student')
         );
     }
-
 
     /**
      * Formulaire création compte
@@ -298,7 +404,6 @@ public function store(Request $request)
         );
     }
 
-
     /**
      * Créer compte utilisateur
      */
@@ -306,7 +411,6 @@ public function store(Request $request)
         Request $request,
         Student $student
     ) {
-
         if ($student->user) {
 
             return redirect()
@@ -316,7 +420,6 @@ public function store(Request $request)
                     'Cet élève possède déjà un compte.'
                 );
         }
-
 
         $validated = $request->validate([
 
@@ -335,31 +438,22 @@ public function store(Request $request)
             ],
         ]);
 
-
         $user = User::create([
 
-            'name' =>
-                $student->first_name
-                . ' '
-                . $student->last_name,
+            'name' => $student->first_name
+                .' '
+                .$student->last_name,
 
-            'email' =>
-                $validated['email'],
+            'email' => $validated['email'],
 
-            'password' =>
-                Hash::make($validated['password']),
+            'password' => Hash::make($validated['password']),
 
-            'role' =>
-                'student',
+            'role' => 'student',
         ]);
-
 
         $student->update([
-
-            'user_id' =>
-                $user->id,
+            'user_id' => $user->id,
         ]);
-
 
         return redirect()
             ->route('students.accounts')
@@ -368,7 +462,6 @@ public function store(Request $request)
                 'Le compte élève a été créé avec succès.'
             );
     }
-
 
     /**
      * Formulaire modification
@@ -381,7 +474,6 @@ public function store(Request $request)
         );
     }
 
-
     /**
      * Mettre à jour un élève
      */
@@ -389,37 +481,37 @@ public function store(Request $request)
         Request $request,
         Student $student
     ) {
-
         $validated = $request->validate([
 
-            'first_name' =>
-                'required|string|max:100',
+            'first_name' => 'required|string|max:100',
 
-            'last_name' =>
-                'required|string|max:100',
+            'last_name' => 'required|string|max:100',
 
-            'date_of_birth' =>
-                'nullable|date',
+            'date_of_birth' => 'nullable|date',
 
-            'phone' =>
-                'nullable|string|max:30',
+            'phone' => 'nullable|string|max:30',
 
-            'address' =>
-                'nullable|string',
+            'address' => 'nullable|string',
 
-            'level' =>
-                'required|string|max:100',
+            'level' => 'required|string|max:100',
 
-            'parent_name' =>
-                'nullable|string|max:150',
+            'parent_name' => 'nullable|string|max:150',
 
-            'parent_phone' =>
-                'nullable|string|max:30',
+            'parent_phone' => 'nullable|string|max:30',
         ]);
 
+        // Vérifier que le niveau appartient à un cycle connu
+        $cycle = $this->getCycleFromLevel($validated['level']);
+
+        if (! $cycle) {
+            return back()
+                ->withErrors([
+                    'level' => 'Le niveau scolaire sélectionné est invalide.',
+                ])
+                ->withInput();
+        }
 
         $student->update($validated);
-
 
         return redirect()
             ->route('students.index')
@@ -428,7 +520,6 @@ public function store(Request $request)
                 'Élève modifié avec succès.'
             );
     }
-
 
     /**
      * Supprimer un élève

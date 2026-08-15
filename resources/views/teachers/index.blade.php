@@ -597,7 +597,7 @@
                                                              text-sm
                                                              font-semibold">
 
-                                                    {{ $teacher->speciality }}
+                                                    {{ $teacher->subjects->pluck('name')->join(', ') ?: $teacher->speciality }}
 
                                                 </span>
 

@@ -123,11 +123,12 @@
                             <select
                                 id="teacher_id"
                                 name="teacher_id"
+                                required
                                 class="w-full rounded-xl border-gray-300 dark:border-gray-600
                                        dark:bg-gray-700 dark:text-white
                                        focus:border-[#0B2A55] focus:ring-[#0B2A55]"
                             >
-                                <option value="">-- Aucun enseignant --</option>
+                                <option value="">-- Sélectionner un enseignant --</option>
 
                                 @foreach ($teachers as $teacher)
                                     <option
@@ -165,7 +166,7 @@
                             <div
                                 class="px-4 py-2 rounded-xl font-semibold text-sm"
                                 style="background-color: #C89B3C; color: white;">
-                                {{ $students->count() }} élèves
+                                <span id="students-count">0</span> élève(s)
                             </div>
 
                         </div>
@@ -173,7 +174,44 @@
                     </div>
 
 
-                    @if ($students->count() > 0)
+                    {{-- Message : sélectionner matière + enseignant --}}
+                    <div id="students-prompt" class="p-10 text-center">
+
+                        <div class="text-5xl mb-4">
+                            👨‍🎓
+                        </div>
+
+                        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
+                            Sélectionnez une matière et un enseignant
+                        </h3>
+
+                        <p class="text-sm text-gray-500 mt-2">
+                            La liste des élèves sera affichée automatiquement après la sélection.
+                        </p>
+
+                    </div>
+
+
+                    {{-- Message : aucun élève inscrit --}}
+                    <div id="students-empty" class="p-10 text-center hidden">
+
+                        <div class="text-5xl mb-4">
+                            🕵️
+                        </div>
+
+                        <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
+                            Aucun élève inscrit
+                        </h3>
+
+                        <p class="text-sm text-gray-500 mt-2">
+                            Aucun élève n'est inscrit à cette matière avec cet enseignant.
+                        </p>
+
+                    </div>
+
+
+                    {{-- Tableau (rempli automatiquement) --}}
+                    <div id="students-table" class="hidden">
 
                         <div class="overflow-x-auto">
 
@@ -216,111 +254,8 @@
                                 </thead>
 
 
-                                <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-
-                                    @foreach ($students as $student)
-
-                                        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-<input
-    type="hidden"
-    name="students[{{ $student->id }}][id]"
-    value="{{ $student->id }}"
->
-                                            <td class="px-6 py-4 text-sm text-gray-500">
-                                                {{ $loop->iteration }}
-                                            </td>
-
-
-                                            <td class="px-6 py-4">
-
-                                                <div class="font-semibold text-gray-800 dark:text-gray-100">
-                                                    {{ $student->first_name }}
-                                                    {{ $student->last_name }}
-                                                </div>
-
-                                                @if(isset($student->registration_number))
-                                                    <div class="text-xs text-gray-500 mt-1">
-                                                        {{ $student->registration_number }}
-                                                    </div>
-                                                @endif
-
-                                            </td>
-
-
-                                            {{-- Présent --}}
-                                            <td class="px-6 py-4 text-center">
-
-                                                <input
-                                                    type="radio"
-                                                    name="students[{{ $student->id }}][status]"
-                                                    value="present"
-                                                    required
-                                                    class="w-5 h-5"
-                                                >
-
-                                            </td>
-
-
-                                            {{-- Absent --}}
-                                            <td class="px-6 py-4 text-center">
-
-                                                <input
-                                                    type="radio"
-                                                    name="students[{{ $student->id }}][status]"
-                                                    value="absent"
-                                                    class="w-5 h-5"
-                                                >
-
-                                            </td>
-
-
-                                            {{-- Retard --}}
-                                            <td class="px-6 py-4 text-center">
-
-                                                <input
-                                                    type="radio"
-                                                    name="students[{{ $student->id }}][status]"
-                                                    value="late"
-                                                    class="w-5 h-5"
-                                                >
-
-                                            </td>
-
-
-                                            {{-- Justifié --}}
-                                            <td class="px-6 py-4 text-center">
-
-                                                <input
-                                                    type="radio"
-                                                    name="students[{{ $student->id }}][status]"
-                                                    value="justified"
-                                                    class="w-5 h-5"
-                                                >
-
-                                            </td>
-
-
-                                            {{-- Note --}}
-                                            <td class="px-6 py-4">
-
-                                                <input
-                                                    type="text"
-                                                    name="students[{{ $student->id }}][note]"
-                                                    placeholder="Note..."
-                                                    class="w-full rounded-lg border-gray-300
-                                                           dark:border-gray-600
-                                                           dark:bg-gray-700
-                                                           dark:text-white text-sm
-                                                           focus:border-[#0B2A55]
-                                                           focus:ring-[#0B2A55]"
-                                                >
-
-                                            </td>
-
-                                        </tr>
-
-                                    @endforeach
-
+                                <tbody id="students-tbody"
+                                       class="divide-y divide-gray-200 dark:divide-gray-700">
                                 </tbody>
 
                             </table>
@@ -342,25 +277,7 @@
 
                         </div>
 
-                    @else
-
-                        <div class="p-10 text-center">
-
-                            <div class="text-5xl mb-4">
-                                👨‍🎓
-                            </div>
-
-                            <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
-                                Aucun élève trouvé
-                            </h3>
-
-                            <p class="text-sm text-gray-500 mt-2">
-                                Veuillez ajouter des élèves avant d'enregistrer les présences.
-                            </p>
-
-                        </div>
-
-                    @endif
+                    </div>
 
                 </div>
 
@@ -371,3 +288,220 @@
     </div>
 
 </x-app-layout>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    const subjectSelect =
+        document.getElementById('subject_id');
+
+    const teacherSelect =
+        document.getElementById('teacher_id');
+
+    const tbody =
+        document.getElementById('students-tbody');
+
+    const prompt =
+        document.getElementById('students-prompt');
+
+    const empty =
+        document.getElementById('students-empty');
+
+    const table =
+        document.getElementById('students-table');
+
+    const countBadge =
+        document.getElementById('students-count');
+
+
+    function escapeHtml(value) {
+
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#039;');
+    }
+
+
+    function setCount(count) {
+
+        countBadge.textContent = count;
+    }
+
+
+    function showPrompt() {
+
+        prompt.classList.remove('hidden');
+
+        empty.classList.add('hidden');
+
+        table.classList.add('hidden');
+
+        tbody.innerHTML = '';
+
+        setCount(0);
+    }
+
+
+    function showEmpty() {
+
+        prompt.classList.add('hidden');
+
+        empty.classList.remove('hidden');
+
+        table.classList.add('hidden');
+
+        tbody.innerHTML = '';
+
+        setCount(0);
+    }
+
+
+    function renderRows(students) {
+
+        tbody.innerHTML = '';
+
+        setCount(students.length);
+
+        students.forEach(function (student, index) {
+
+            const row = document.createElement('tr');
+
+            row.className =
+                'hover:bg-gray-50 dark:hover:bg-gray-700 transition';
+
+            row.innerHTML = `
+                <input
+                    type="hidden"
+                    name="students[${student.id}][id]"
+                    value="${student.id}"
+                >
+                <td class="px-6 py-4 text-sm text-gray-500">
+                    ${index + 1}
+                </td>
+                <td class="px-6 py-4">
+                    <div class="font-semibold text-gray-800 dark:text-gray-100">
+                        ${escapeHtml(student.first_name)}
+                        ${escapeHtml(student.last_name)}
+                    </div>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input
+                        type="radio"
+                        name="students[${student.id}][status]"
+                        value="present"
+                        required
+                        class="w-5 h-5"
+                    >
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input
+                        type="radio"
+                        name="students[${student.id}][status]"
+                        value="absent"
+                        class="w-5 h-5"
+                    >
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input
+                        type="radio"
+                        name="students[${student.id}][status]"
+                        value="late"
+                        class="w-5 h-5"
+                    >
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input
+                        type="radio"
+                        name="students[${student.id}][status]"
+                        value="justified"
+                        class="w-5 h-5"
+                    >
+                </td>
+                <td class="px-6 py-4">
+                    <input
+                        type="text"
+                        name="students[${student.id}][note]"
+                        placeholder="Note..."
+                        class="w-full rounded-lg border-gray-300
+                               dark:border-gray-600
+                               dark:bg-gray-700
+                               dark:text-white text-sm
+                               focus:border-[#0B2A55]
+                               focus:ring-[#0B2A55]"
+                    >
+                </td>
+            `;
+
+            tbody.appendChild(row);
+        });
+    }
+
+
+    function loadStudents() {
+
+        const subjectId = subjectSelect.value;
+
+        const teacherId = teacherSelect.value;
+
+
+        if (!subjectId || !teacherId) {
+
+            showPrompt();
+
+            return;
+        }
+
+
+        const url =
+            "{{ route('attendances.students') }}"
+            + '?subject_id=' + encodeURIComponent(subjectId)
+            + '&teacher_id=' + encodeURIComponent(teacherId);
+
+
+        fetch(url)
+
+            .then(function (response) {
+
+                if (!response.ok) {
+
+                    throw new Error('Erreur lors du chargement');
+                }
+
+                return response.json();
+            })
+
+            .then(function (students) {
+
+                if (!Array.isArray(students) || students.length === 0) {
+
+                    showEmpty();
+
+                    return;
+                }
+
+                prompt.classList.add('hidden');
+
+                empty.classList.add('hidden');
+
+                table.classList.remove('hidden');
+
+                renderRows(students);
+            })
+
+            .catch(function () {
+
+                showPrompt();
+            });
+    }
+
+
+    subjectSelect.addEventListener('change', loadStudents);
+
+    teacherSelect.addEventListener('change', loadStudents);
+
+    loadStudents();
+});
+</script>

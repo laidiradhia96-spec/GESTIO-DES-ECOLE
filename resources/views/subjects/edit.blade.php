@@ -3,11 +3,11 @@
     <x-slot name="header">
         <div>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Ajouter une matière
+                Modifier une matière
             </h2>
 
             <p class="text-sm text-gray-500 mt-1">
-                Ajouter une nouvelle matière à l'école
+                Modifier les informations de la matière
             </p>
         </div>
     </x-slot>
@@ -37,9 +37,11 @@
                     @endif
 
 
-                    <form method="POST" action="{{ route('subjects.store') }}">
+                    <form method="POST"
+                          action="{{ route('subjects.update', $subject) }}">
 
                         @csrf
+                        @method('PUT')
 
 
                         {{-- Nom + Code --}}
@@ -54,8 +56,7 @@
                                 <input
                                     type="text"
                                     name="name"
-                                    value="{{ old('name') }}"
-                                    placeholder="Ex : Mathématiques"
+                                    value="{{ old('name', $subject->name) }}"
                                     required
                                     class="w-full rounded-lg border-gray-300
                                            focus:border-blue-500 focus:ring-blue-500"
@@ -79,8 +80,7 @@
                                 <input
                                     type="text"
                                     name="code"
-                                    value="{{ old('code') }}"
-                                    placeholder="Ex : MAT"
+                                    value="{{ old('code', $subject->code) }}"
                                     required
                                     class="w-full rounded-lg border-gray-300
                                            focus:border-blue-500 focus:ring-blue-500"
@@ -97,18 +97,18 @@
                         </div>
 
 
-                        {{-- Cycles scolaires --}}
+                        {{-- Cycles --}}
                         <div class="mt-6">
 
                             <label class="block text-sm font-bold
-                                          text-[#0B2A55]
-                                          mb-2">
+                                          text-[#0B2A55] mb-2">
+
                                 Cycles concernés *
+
                             </label>
 
                             <p class="text-sm text-gray-500 mb-4">
-                                Sélectionnez un ou plusieurs cycles pour lesquels
-                                cette matière est disponible.
+                                Sélectionnez un ou plusieurs cycles.
                             </p>
 
 
@@ -117,7 +117,7 @@
 
                                 {{-- Primaire --}}
                                 <label
-                                    class="relative flex items-center gap-3
+                                    class="flex items-center gap-3
                                            p-4 rounded-xl
                                            border-2 border-gray-200
                                            bg-gray-50
@@ -131,7 +131,12 @@
                                         type="checkbox"
                                         name="primaire"
                                         value="1"
-                                        {{ old('primaire') ? 'checked' : '' }}
+
+                                        {{ old(
+                                            'primaire',
+                                            $subject->primaire
+                                        ) ? 'checked' : '' }}
+
                                         class="rounded border-gray-300
                                                text-[#C89B3C]
                                                focus:ring-[#C89B3C]"
@@ -154,7 +159,7 @@
 
                                 {{-- Moyen --}}
                                 <label
-                                    class="relative flex items-center gap-3
+                                    class="flex items-center gap-3
                                            p-4 rounded-xl
                                            border-2 border-gray-200
                                            bg-gray-50
@@ -168,7 +173,12 @@
                                         type="checkbox"
                                         name="moyen"
                                         value="1"
-                                        {{ old('moyen') ? 'checked' : '' }}
+
+                                        {{ old(
+                                            'moyen',
+                                            $subject->moyen
+                                        ) ? 'checked' : '' }}
+
                                         class="rounded border-gray-300
                                                text-[#C89B3C]
                                                focus:ring-[#C89B3C]"
@@ -191,7 +201,7 @@
 
                                 {{-- Lycée --}}
                                 <label
-                                    class="relative flex items-center gap-3
+                                    class="flex items-center gap-3
                                            p-4 rounded-xl
                                            border-2 border-gray-200
                                            bg-gray-50
@@ -205,7 +215,12 @@
                                         type="checkbox"
                                         name="lycee"
                                         value="1"
-                                        {{ old('lycee') ? 'checked' : '' }}
+
+                                        {{ old(
+                                            'lycee',
+                                            $subject->lycee
+                                        ) ? 'checked' : '' }}
+
                                         class="rounded border-gray-300
                                                text-[#C89B3C]
                                                focus:ring-[#C89B3C]"
@@ -247,7 +262,10 @@
                             <input
                                 type="number"
                                 name="hours_per_week"
-                                value="{{ old('hours_per_week', 1) }}"
+                                value="{{ old(
+                                    'hours_per_week',
+                                    $subject->hours_per_week
+                                ) }}"
                                 min="1"
                                 max="40"
                                 required
@@ -274,16 +292,12 @@
                             <textarea
                                 name="description"
                                 rows="4"
-                                placeholder="Description de la matière..."
                                 class="w-full rounded-lg border-gray-300
                                        focus:border-blue-500 focus:ring-blue-500"
-                            >{{ old('description') }}</textarea>
-
-                            @error('description')
-                                <p class="mt-1 text-sm text-red-600">
-                                    {{ $message }}
-                                </p>
-                            @enderror
+                            >{{ old(
+                                'description',
+                                $subject->description
+                            ) }}</textarea>
 
                         </div>
 
@@ -297,7 +311,12 @@
                                     type="checkbox"
                                     name="active"
                                     value="1"
-                                    {{ old('active', true) ? 'checked' : '' }}
+
+                                    {{ old(
+                                        'active',
+                                        $subject->active
+                                    ) ? 'checked' : '' }}
+
                                     class="rounded border-gray-300
                                            text-blue-600 shadow-sm
                                            focus:ring-blue-500"
@@ -327,11 +346,11 @@
 
                             <button
                                 type="submit"
-                                class="px-5 py-2.5 bg-blue-600
+                                class="px-5 py-2.5 bg-[#0B2A55]
                                        text-white rounded-lg
-                                       hover:bg-blue-700 transition"
+                                       hover:bg-[#091f3f] transition"
                             >
-                                Enregistrer
+                                Enregistrer les modifications
                             </button>
 
                         </div>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Payment;
 use App\Models\Student;
 use App\Models\Subject;
+use App\Services\PaymentSignalementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -151,7 +152,6 @@ class PaymentController extends Controller
         );
     }
 
-
     /**
      * Formulaire de paiement
      */
@@ -174,7 +174,6 @@ class PaymentController extends Controller
             )
         );
     }
-
 
     /**
      * Enregistrer un paiement
@@ -228,7 +227,6 @@ class PaymentController extends Controller
             ],
         ]);
 
-
         // =========================
         // VÉRIFICATION MONTANT
         // =========================
@@ -240,12 +238,10 @@ class PaymentController extends Controller
 
             return back()
                 ->withErrors([
-                    'amount_paid' =>
-                        'Le montant payé ne peut pas dépasser le montant demandé.'
+                    'amount_paid' => 'Le montant payé ne peut pas dépasser le montant demandé.',
                 ])
                 ->withInput();
         }
-
 
         DB::transaction(function () use ($validated) {
 
@@ -260,16 +256,15 @@ class PaymentController extends Controller
                 : 1;
 
             $receiptNumber =
-                'REC-' .
-                now()->format('Y') .
-                '-' .
+                'REC-'.
+                now()->format('Y').
+                '-'.
                 str_pad(
                     $nextNumber,
                     5,
                     '0',
                     STR_PAD_LEFT
                 );
-
 
             // =========================
             // CALCUL DU RESTE
@@ -280,50 +275,44 @@ class PaymentController extends Controller
                 -
                 (float) $validated['amount_paid'];
 
-
             // =========================
             // CRÉATION
             // =========================
 
-            Payment::create([
+            $payment = Payment::create([
 
                 'receipt_number' => $receiptNumber,
 
-                'student_id' =>
-                    $validated['student_id'],
+                'student_id' => $validated['student_id'],
 
-                'subject_id' =>
-                    $validated['subject_id'],
+                'subject_id' => $validated['subject_id'],
 
-                'payment_type' =>
-                    $validated['payment_type'],
+                'payment_type' => $validated['payment_type'],
 
-                'period' =>
-                    $validated['period'],
+                'period' => $validated['period'],
 
-                'amount_due' =>
-                    $validated['amount_due'],
+                'amount_due' => $validated['amount_due'],
 
-                'amount_paid' =>
-                    $validated['amount_paid'],
+                'amount_paid' => $validated['amount_paid'],
 
-                'remaining_amount' =>
-                    $remaining,
+                'remaining_amount' => $remaining,
 
-                'payment_method' =>
-                    $validated['payment_method'],
+                'payment_method' => $validated['payment_method'],
 
-                'payment_date' =>
-                    now()->toDateString(),
+                'payment_date' => now()->toDateString(),
 
-                'payment_time' =>
-                    now()->format('H:i:s'),
+                'payment_time' => now()->format('H:i:s'),
 
-                'note' =>
-                    $validated['note'] ?? null,
+                'note' => $validated['note'] ?? null,
             ]);
-        });
 
+            // =========================
+            // MISE À JOUR DES SIGNALEMENTS
+            // =========================
+
+            app(PaymentSignalementService::class)
+                ->syncFromPayment($payment);
+        });
 
         return redirect()
             ->route('payments.index')
@@ -332,7 +321,6 @@ class PaymentController extends Controller
                 'Paiement enregistré avec succès.'
             );
     }
-
 
     /**
      * Afficher le paiement

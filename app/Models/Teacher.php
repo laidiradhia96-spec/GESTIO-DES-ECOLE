@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\Level;
 
 class Teacher extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'first_name',
         'last_name',
@@ -22,20 +24,21 @@ class Teacher extends Model
         'hire_date' => 'date',
         'active' => 'boolean',
     ];
+
     public function enrollments()
-{
-    return $this->hasMany(Enrollment::class);
-}
+    {
+        return $this->hasMany(Enrollment::class);
+    }
 
-public function subjects()
-{
-    return $this->belongsToMany(Subject::class, 'subject_teacher')
-        ->withTimestamps();
-}
+    public function subjects()
+    {
+        return $this->belongsToMany(Subject::class, 'subject_teacher')
+            ->withTimestamps();
+    }
 
-public function levels()
-{
-    return $this->belongsToMany(Level::class, 'teacher_level')
-        ->withTimestamps();
-}
+    public function levels()
+    {
+        return $this->belongsToMany(Level::class, 'teacher_level')
+            ->withTimestamps();
+    }
 }

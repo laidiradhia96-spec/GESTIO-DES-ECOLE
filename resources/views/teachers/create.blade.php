@@ -309,9 +309,9 @@
                         </div>
 
 
-                        <!-- Spécialité -->
+                        <!-- Matières enseignées -->
 
-                        <div>
+                        <div class="md:col-span-2">
 
                             <label class="block
                                           text-sm font-bold
@@ -319,44 +319,83 @@
                                           dark:text-gray-200
                                           mb-2">
 
-                                Spécialité
-                                <span class="text-red-500">*</span>
+                                Matières enseignées
 
                             </label>
 
-                            <div class="relative">
+                            <div class="grid grid-cols-1
+                                        sm:grid-cols-2
+                                        lg:grid-cols-3
+                                        gap-3">
 
-                                <span class="absolute left-4 top-1/2
-                                             -translate-y-1/2
-                                             text-lg">
+                                @foreach($subjects as $subject)
 
-                                    📚
+                                    <label class="relative cursor-pointer">
 
-                                </span>
+                                        <input
+                                            type="checkbox"
+                                            name="subjects[]"
+                                            value="{{ $subject->id }}"
+                                            class="peer sr-only"
+                                            {{ in_array($subject->id, old('subjects', [])) ? 'checked' : '' }}
+                                        >
 
-                                <input
-                                    type="text"
-                                    name="speciality"
-                                    value="{{ old('speciality') }}"
-                                    required
-                                    placeholder="Ex : Mathématiques"
+                                        <div class="p-4 rounded-2xl
+                                                    border-2 border-gray-200
+                                                    bg-gray-50
+                                                    peer-checked:border-[#0B2A55]
+                                                    peer-checked:bg-blue-50
+                                                    transition">
 
-                                    class="w-full rounded-xl
-                                           border-2
-                                           border-gray-200
-                                           bg-gray-50
-                                           pl-12 pr-4 py-3.5
-                                           text-gray-800
-                                           outline-none
-                                           transition
+                                            <div class="flex items-center gap-3">
 
-                                           focus:border-[#C89B3C]
-                                           focus:bg-white
-                                           focus:ring-4
-                                           focus:ring-[#C89B3C]/10"
-                                >
+                                                <div class="w-10 h-10 rounded-xl
+                                                            bg-white
+                                                            flex items-center justify-center
+                                                            shadow-sm">
+
+                                                    📚
+
+                                                </div>
+
+                                                <div>
+
+                                                    <div class="font-extrabold
+                                                                text-[#0B2A55]">
+
+                                                        {{ $subject->name }}
+
+                                                    </div>
+
+                                                    @if($subject->code)
+
+                                                        <div class="text-xs text-gray-500 mt-1">
+
+                                                            {{ $subject->code }}
+
+                                                        </div>
+
+                                                    @endif
+
+                                                </div>
+
+                                            </div>
+
+                                        </div>
+
+                                    </label>
+
+                                @endforeach
 
                             </div>
+
+                            @error('subjects')
+
+                                <p class="mt-3 text-sm text-red-600 font-semibold">
+                                    {{ $message }}
+                                </p>
+
+                            @enderror
 
                         </div>
 

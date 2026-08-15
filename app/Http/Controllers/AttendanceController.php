@@ -3,28 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attendance;
+use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
+use App\Services\PaymentSignalementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use App\Models\Payment;
-use App\Models\PaymentSignalement;
+use Illuminate\Validation\Rule;
 
 class AttendanceController extends Controller
 {
     /**
-     * Liste des présences
+     * Liste des prÃ©sences
      */
     public function index(Request $request)
     {
         $query = Attendance::with([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ]);
 
-        // Recherche élève
+        // Recherche Ã©lÃ¨ve
         if ($request->filled('search')) {
 
             $search = trim($request->input('search'));
@@ -39,14 +40,16 @@ class AttendanceController extends Controller
 
         // Filtre date
         if ($request->filled('date')) {
+
             $query->whereDate(
                 'date',
                 $request->input('date')
             );
         }
 
-        // Filtre matière
+        // Filtre matiÃ¨re
         if ($request->filled('subject_id')) {
+
             $query->where(
                 'subject_id',
                 $request->input('subject_id')
@@ -55,6 +58,7 @@ class AttendanceController extends Controller
 
         // Filtre statut
         if ($request->filled('status')) {
+
             $query->where(
                 'status',
                 $request->input('status')
@@ -78,17 +82,11 @@ class AttendanceController extends Controller
         );
     }
 
-
     /**
-     * Formulaire pour enregistrer une séance
+     * Formulaire pour enregistrer une sÃ©ance
      */
     public function create()
     {
-        $students = Student::query()
-            ->orderBy('last_name')
-            ->orderBy('first_name')
-            ->get();
-
         $subjects = Subject::query()
             ->orderBy('name')
             ->get();
@@ -101,123 +99,189 @@ class AttendanceController extends Controller
         return view(
             'attendances.create',
             compact(
-                'students',
                 'subjects',
                 'teachers'
             )
         );
     }
 
+    /**
+     * Récupérer les élèves inscrits (enrollment actif)
+     * à une matière + un enseignant.
+     */
+    public function students(Request $request)
+    {
+        $validated = $request->validate([
+            'subject_id' => [
+                'required',
+                'integer',
+                'exists:subjects,id',
+            ],
 
-    public function store(Request $request)
-{
-    $validated = $request->validate([
+            'teacher_id' => [
+                'required',
+                'integer',
+                'exists:teachers,id',
+            ],
+        ]);
 
-        'date' => [
-            'required',
-            'date',
-        ],
+        $students = Student::query()
+            ->whereIn(
+                'id',
+                $this->enrolledStudentIds(
+                    $validated['subject_id'],
+                    $validated['teacher_id']
+                )
+            )
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get([
+                'id',
+                'first_name',
+                'last_name',
+            ]);
 
-        'subject_id' => [
-            'required',
-            'integer',
-            'exists:subjects,id',
-        ],
-
-        'teacher_id' => [
-            'nullable',
-            'integer',
-            'exists:teachers,id',
-        ],
-
-        'students' => [
-            'required',
-            'array',
-            'min:1',
-        ],
-
-        'students.*.id' => [
-            'required',
-            'integer',
-            'exists:students,id',
-        ],
-
-        'students.*.status' => [
-            'required',
-            'in:present,absent,late,justified',
-        ],
-
-        'students.*.note' => [
-            'nullable',
-            'string',
-        ],
-    ]);
-
-    DB::transaction(function () use ($validated) {
-
-        foreach ($validated['students'] as $studentData) {
-
-            $attendance = Attendance::updateOrCreate(
-                [
-                    'student_id' => $studentData['id'],
-                    'subject_id' => $validated['subject_id'],
-                    'date' => $validated['date'],
-                ],
-                [
-                    'teacher_id' => $validated['teacher_id'] ?? null,
-                    'status' => $studentData['status'],
-                    'note' => $studentData['note'] ?? null,
-                ]
-            );
-$this->createPaymentSignalement(
-    $student['id'],
-    $validated['subject_id'],
-    $validated['date']
-);
-            /*
-            |--------------------------------------------------------------------------
-            | Vérification du paiement
-            |--------------------------------------------------------------------------
-            |
-            | فقط إذا كان الطالب حاضر أو متأخر.
-            |
-            */
-
-            if (in_array($studentData['status'], ['present', 'late'])) {
-
-                $this->checkPaymentForAttendance(
-                    $attendance
-                );
-            }
-        }
-    });
-
-    return redirect()
-        ->route('attendances.index')
-        ->with(
-            'success',
-            'Les présences ont été enregistrées avec succès.'
-        );
-}
+        return response()->json($students);
+    }
 
     /**
-     * Afficher les détails d'une séance
+     * Enregistrer une sÃ©ance
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'date' => [
+                'required',
+                'date',
+            ],
+
+            'subject_id' => [
+                'required',
+                'integer',
+                'exists:subjects,id',
+            ],
+
+            'teacher_id' => [
+                'required',
+                'integer',
+                'exists:teachers,id',
+            ],
+
+            'students' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'students.*.id' => [
+                'required',
+                'integer',
+                Rule::in(
+                    $this->enrolledStudentIds(
+                        (int) $request->input('subject_id'),
+                        (int) $request->input('teacher_id')
+                    )
+                ),
+            ],
+
+            'students.*.status' => [
+                'required',
+                'in:present,absent,late,justified',
+            ],
+
+            'students.*.note' => [
+                'nullable',
+                'string',
+            ],
+        ], [
+            'students.*.id.in' => 'Un élève sélectionné n\'est pas inscrit à cette matière avec cet enseignant.',
+        ]);
+
+        DB::transaction(function () use ($validated) {
+
+            foreach ($validated['students'] as $studentData) {
+
+                /*
+                |--------------------------------------------------------------------------
+                | ENREGISTRER LA PRÃ‰SENCE
+                |--------------------------------------------------------------------------
+                */
+
+                $attendance = Attendance::updateOrCreate(
+                    [
+                        'student_id' => $studentData['id'],
+
+                        'subject_id' => $validated['subject_id'],
+
+                        'date' => $validated['date'],
+                    ],
+                    [
+                        'teacher_id' => $validated['teacher_id'] ?? null,
+
+                        'status' => $studentData['status'],
+
+                        'note' => $studentData['note'] ?? null,
+                    ]
+                );
+
+                /*
+                |--------------------------------------------------------------------------
+                | VÃ‰RIFICATION DU PAIEMENT
+                |--------------------------------------------------------------------------
+                |
+                | Seulement pour :
+                |
+                | present
+                | late
+                |
+                */
+
+                if (
+                    in_array(
+                        $studentData['status'],
+                        ['present', 'late']
+                    )
+                ) {
+
+                    $this->checkPaymentForAttendance(
+                        $attendance
+                    );
+                }
+            }
+        });
+
+        return redirect()
+            ->route('attendances.index')
+            ->with(
+                'success',
+                'Les prÃ©sences ont Ã©tÃ© enregistrÃ©es avec succÃ¨s.'
+            );
+    }
+
+    /**
+     * Afficher les dÃ©tails d'une sÃ©ance
      */
     public function show(Attendance $attendance)
     {
         $attendance->load([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ]);
 
         $attendances = Attendance::with([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ])
-            ->where('date', $attendance->date)
-            ->where('subject_id', $attendance->subject_id)
+            ->where(
+                'date',
+                $attendance->date
+            )
+            ->where(
+                'subject_id',
+                $attendance->subject_id
+            )
             ->orderBy('id')
             ->get();
 
@@ -230,42 +294,42 @@ $this->createPaymentSignalement(
         );
     }
 
-
     /**
-     * Formulaire de modification d'une séance
+     * Formulaire de modification
      */
     public function edit(Attendance $attendance)
     {
-        // Charger la présence sélectionnée
         $attendance->load([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ]);
 
-        // Charger toutes les présences de la même séance
         $attendances = Attendance::with([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ])
-            ->where('date', $attendance->date)
-            ->where('subject_id', $attendance->subject_id)
+            ->where(
+                'date',
+                $attendance->date
+            )
+            ->where(
+                'subject_id',
+                $attendance->subject_id
+            )
             ->orderBy('id')
             ->get();
 
-        // Liste des élèves
         $students = Student::query()
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
 
-        // Liste des matières
         $subjects = Subject::query()
             ->orderBy('name')
             ->get();
 
-        // Liste des enseignants
         $teachers = Teacher::query()
             ->orderBy('last_name')
             ->orderBy('first_name')
@@ -283,12 +347,14 @@ $this->createPaymentSignalement(
         );
     }
 
-
     /**
-     * Mise à jour des présences
+     * Mise Ã  jour des prÃ©sences
      */
-    public function update(Request $request, Attendance $attendance)
-    {
+    public function update(
+        Request $request,
+        Attendance $attendance
+    ) {
+
         $validated = $request->validate([
 
             'date' => [
@@ -303,7 +369,7 @@ $this->createPaymentSignalement(
             ],
 
             'teacher_id' => [
-                'nullable',
+                'required',
                 'integer',
                 'exists:teachers,id',
             ],
@@ -317,7 +383,12 @@ $this->createPaymentSignalement(
             'students.*.id' => [
                 'required',
                 'integer',
-                'exists:students,id',
+                Rule::in(
+                    $this->enrolledStudentIds(
+                        (int) $request->input('subject_id'),
+                        (int) $request->input('teacher_id')
+                    )
+                ),
             ],
 
             'students.*.status' => [
@@ -329,89 +400,142 @@ $this->createPaymentSignalement(
                 'nullable',
                 'string',
             ],
+        ], [
+            'students.*.id.in' => 'Un élève sélectionné n\'est pas inscrit à cette matière avec cet enseignant.',
         ]);
 
+        DB::transaction(function () use (
+            $validated,
+            $attendance
+        ) {
 
-        DB::transaction(function () use ($validated, $attendance) {
+            $oldDate =
+                $attendance->date;
 
-            // Séance originale
-            $oldDate = $attendance->date;
-            $oldSubjectId = $attendance->subject_id;
+            $oldSubjectId =
+                $attendance->subject_id;
 
-            // Mise à jour / création des présences
+            /*
+            |--------------------------------------------------------------------------
+            | Mise Ã  jour / crÃ©ation
+            |--------------------------------------------------------------------------
+            */
+
             foreach ($validated['students'] as $student) {
 
-                Attendance::updateOrCreate(
-                    [
-                        'student_id' => $student['id'],
-                        'subject_id' => $validated['subject_id'],
-                        'date' => $validated['date'],
-                    ],
-                    [
-                        'teacher_id' => $validated['teacher_id'] ?? null,
-                        'status' => $student['status'],
-                        'note' => $student['note'] ?? null,
-                    ]
-                );
+                $updatedAttendance =
+                    Attendance::updateOrCreate(
+                        [
+                            'student_id' => $student['id'],
+
+                            'subject_id' => $validated['subject_id'],
+
+                            'date' => $validated['date'],
+                        ],
+                        [
+                            'teacher_id' => $validated['teacher_id'] ?? null,
+
+                            'status' => $student['status'],
+
+                            'note' => $student['note'] ?? null,
+                        ]
+                    );
+
+                /*
+                |--------------------------------------------------------------------------
+                | VÃ©rification paiement aprÃ¨s modification
+                |--------------------------------------------------------------------------
+                */
+
+                if (
+                    in_array(
+                        $student['status'],
+                        ['present', 'late']
+                    )
+                ) {
+
+                    $this->checkPaymentForAttendance(
+                        $updatedAttendance
+                    );
+                }
             }
 
-            // Supprimer les anciennes présences
-            // qui ne font plus partie de la séance
-            Attendance::where('date', $oldDate)
-                ->where('subject_id', $oldSubjectId)
+            /*
+            |--------------------------------------------------------------------------
+            | Supprimer les anciennes prÃ©sences
+            |--------------------------------------------------------------------------
+            */
+
+            Attendance::where(
+                'date',
+                $oldDate
+            )
+                ->where(
+                    'subject_id',
+                    $oldSubjectId
+                )
                 ->whereNotIn(
                     'student_id',
-                    collect($validated['students'])
+                    collect(
+                        $validated['students']
+                    )
                         ->pluck('id')
                         ->toArray()
                 )
                 ->delete();
         });
 
-
         return redirect()
             ->route('attendances.index')
             ->with(
                 'success',
-                'Les présences ont été modifiées avec succès.'
+                'Les prÃ©sences ont Ã©tÃ© modifiÃ©es avec succÃ¨s.'
             );
     }
 
-
     /**
-     * Supprimer une présence
+     * Supprimer une prÃ©sence
      */
-    public function destroy(Attendance $attendance)
-    {
+    public function destroy(
+        Attendance $attendance
+    ) {
+
         $attendance->delete();
 
         return redirect()
-            ->route('attendances.index')
+            ->route('attendances.index', request()->query())
             ->with(
                 'success',
-                'La présence a été supprimée avec succès.'
+                'La prÃ©sence a Ã©tÃ© supprimÃ©e avec succÃ¨s.'
             );
     }
 
-
     /**
-     * Impression d'une séance de présence
+     * Impression d'une sÃ©ance
      */
-    public function print(Attendance $attendance)
-    {
+    public function print(
+        Attendance $attendance
+    ) {
+
         $attendance->load([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ]);
 
         $attendances = Attendance::with([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ])
-            ->where('date', $attendance->date)
-            ->where('subject_id', $attendance->subject_id)
+            ->where(
+                'date',
+                $attendance->date
+            )
+            ->where(
+                'subject_id',
+                $attendance->subject_id
+            )
             ->orderBy('id')
             ->get();
 
@@ -423,355 +547,46 @@ $this->createPaymentSignalement(
             )
         );
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ÉLÈVES INSCRITS (ENROLLMENT ACTIF)
+    |--------------------------------------------------------------------------
+    */
+
     /**
- * Vérifier le paiement lié à une présence
- */
-private function checkPaymentForAttendance(Attendance $attendance)
-{
-    $date = $attendance->date;
+     * IDs des élèves ayant un enrollment actif
+     * pour une matière + un enseignant.
+     *
+     * Source unique de vérité utilisée à la fois par
+     * l'endpoint AJAX et par la validation serveur.
+     */
+    private function enrolledStudentIds(
+        int $subjectId,
+        int $teacherId
+    ): array {
+
+        return Enrollment::query()
+            ->where('subject_id', $subjectId)
+            ->where('teacher_id', $teacherId)
+            ->where('status', 'active')
+            ->pluck('student_id')
+            ->unique()
+            ->values()
+            ->all();
+    }
 
     /*
     |--------------------------------------------------------------------------
-    | 1. Chercher le dernier paiement actif
-    |    pour cet élève + cette matière
+    | VÉRIFICATION DU PAIEMENT
     |--------------------------------------------------------------------------
     */
 
-    $payment = Payment::where(
-            'student_id',
-            $attendance->student_id
-        )
-        ->where(
-            'subject_id',
-            $attendance->subject_id
-        )
-        ->latest('payment_date')
-        ->latest('id')
-        ->first();
+    private function checkPaymentForAttendance(
+        Attendance $attendance
+    ): void {
 
-
-    /*
-    |--------------------------------------------------------------------------
-    | Aucun paiement trouvé
-    |--------------------------------------------------------------------------
-    */
-
-    if (!$payment) {
-
-        return;
+        app(PaymentSignalementService::class)
+            ->syncFromAttendance($attendance);
     }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 2. ABONNEMENT MENSUEL
-    |--------------------------------------------------------------------------
-    */
-
-    if ($payment->payment_type === 'monthly') {
-
-        /*
-        | Le paiement doit concerner le mois de la présence
-        */
-
-        $month = $date->format('m');
-        $year  = $date->format('Y');
-
-        $monthlyPayment = Payment::where(
-                'student_id',
-                $attendance->student_id
-            )
-            ->where(
-                'subject_id',
-                $attendance->subject_id
-            )
-            ->where(
-                'payment_type',
-                'monthly'
-            )
-            ->whereYear(
-                'payment_date',
-                $year
-            )
-            ->whereMonth(
-                'payment_date',
-                $month
-            )
-            ->where(
-                'remaining_amount',
-                '<=',
-                0
-            )
-            ->first();
-
-
-        /*
-        | إذا الشهر مدفوع بالكامل
-        */
-
-        if ($monthlyPayment) {
-
-            return;
-        }
-
-
-        /*
-        | هل يوجد signalement لهذا الشهر؟
-        */
-
-        $exists = PaymentSignalement::where(
-                'student_id',
-                $attendance->student_id
-            )
-            ->where(
-                'subject_id',
-                $attendance->subject_id
-            )
-            ->where(
-                'period',
-                $date->format('Y-m')
-            )
-            ->whereNull('attendance_date')
-            ->whereIn(
-                'status',
-                ['pending', 'sent']
-            )
-            ->exists();
-
-
-        if (!$exists) {
-
-            PaymentSignalement::create([
-
-                'student_id' =>
-                    $attendance->student_id,
-
-                'subject_id' =>
-                    $attendance->subject_id,
-
-                'payment_id' =>
-                    $payment->id,
-
-                'period' =>
-                    $date->format('Y-m'),
-
-                'amount_remaining' =>
-                    $payment->remaining_amount,
-
-                'status' =>
-                    'pending',
-
-                'signalement_date' =>
-                    now()->toDateString(),
-
-                'attendance_date' =>
-                    null,
-
-                'sent_at' =>
-                    null,
-
-                'note' =>
-                    'Abonnement mensuel non réglé pour ce mois.',
-            ]);
-        }
-
-        return;
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | 3. ABONNEMENT VIP
-    |--------------------------------------------------------------------------
-    */
-
-    if ($payment->payment_type === 'vip') {
-
-        /*
-        | البحث عن paiement VIP لهذا اليوم بالضبط
-        */
-
-        $vipPayment = Payment::where(
-                'student_id',
-                $attendance->student_id
-            )
-            ->where(
-                'subject_id',
-                $attendance->subject_id
-            )
-            ->where(
-                'payment_type',
-                'vip'
-            )
-            ->whereDate(
-                'payment_date',
-                $date
-            )
-            ->where(
-                'remaining_amount',
-                '<=',
-                0
-            )
-            ->first();
-
-
-        /*
-        | إذا دفع VIP لهذا اليوم
-        */
-
-        if ($vipPayment) {
-
-            return;
-        }
-
-
-        /*
-        | هل signalement لهذا اليوم موجود؟
-        */
-
-        $exists = PaymentSignalement::where(
-                'student_id',
-                $attendance->student_id
-            )
-            ->where(
-                'subject_id',
-                $attendance->subject_id
-            )
-            ->whereDate(
-                'attendance_date',
-                $date
-            )
-            ->whereIn(
-                'status',
-                ['pending', 'sent']
-            )
-            ->exists();
-
-
-        /*
-        | إنشاء signalement جديد
-        */
-
-        if (!$exists) {
-
-            PaymentSignalement::create([
-
-                'student_id' =>
-                    $attendance->student_id,
-
-                'subject_id' =>
-                    $attendance->subject_id,
-
-                'payment_id' =>
-                    $payment->id,
-
-                'period' =>
-                    $date->format('Y-m-d'),
-
-                'amount_remaining' =>
-                    $payment->remaining_amount,
-
-                'status' =>
-                    'pending',
-
-                'signalement_date' =>
-                    now()->toDateString(),
-
-                'attendance_date' =>
-                    $date,
-
-                'sent_at' =>
-                    null,
-
-                'note' =>
-                    'Paiement VIP du jour non effectué.',
-            ]);
-        }
-    }
-}
-/**
- * Créer un signalement si le paiement de la matière
- * présente un reste à payer.
- */
-private function createPaymentSignalement(
-    int $studentId,
-    int $subjectId,
-    string $date
-): void {
-    $periodMap = [
-        '01' => 'Janvier',
-        '02' => 'Février',
-        '03' => 'Mars',
-        '04' => 'Avril',
-        '05' => 'Mai',
-        '06' => 'Juin',
-        '07' => 'Juillet',
-        '08' => 'Août',
-        '09' => 'Septembre',
-        '10' => 'Octobre',
-        '11' => 'Novembre',
-        '12' => 'Décembre',
-    ];
-
-    $month = date('m', strtotime($date));
-
-    $period = $periodMap[$month] ?? null;
-
-    if (!$period) {
-        return;
-    }
-
-    $payment = \App\Models\Payment::where(
-        'student_id',
-        $studentId
-    )
-        ->where(
-            'subject_id',
-            $subjectId
-        )
-        ->where(
-            'period',
-            $period
-        )
-        ->where(
-            'remaining_amount',
-            '>',
-            0
-        )
-        ->latest('id')
-        ->first();
-
-    // Aucun paiement ou paiement entièrement réglé
-    if (!$payment) {
-        return;
-    }
-
-    // Éviter les doublons
-    $exists = \App\Models\PaymentSignalement::where(
-        'payment_id',
-        $payment->id
-    )
-        ->where(
-            'attendance_date',
-            $date
-        )
-        ->exists();
-
-    if ($exists) {
-        return;
-    }
-
-    \App\Models\PaymentSignalement::create([
-        'student_id' => $studentId,
-        'subject_id' => $subjectId,
-        'payment_id' => $payment->id,
-        'period' => $payment->period,
-        'amount_remaining' => $payment->remaining_amount,
-        'status' => 'pending',
-        'signalement_date' => now()->toDateString(),
-        'attendance_date' => $date,
-        'sent_at' => null,
-        'note' => 'Impayé détecté lors de l\'enregistrement de la présence.',
-    ]);
-}
 }
