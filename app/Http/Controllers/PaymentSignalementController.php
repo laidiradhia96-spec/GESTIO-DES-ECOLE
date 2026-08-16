@@ -62,15 +62,38 @@ class PaymentSignalementController extends Controller
 
             $search = mb_strtolower(trim($request->search));
 
-            $rows = $rows->filter(function ($row) use ($search) {
+            $terms = preg_split(
+                '/\s+/',
+                $search,
+                -1,
+                PREG_SPLIT_NO_EMPTY
+            ) ?: [];
 
-                $student = $row->student;
+            if ($terms !== []) {
 
-                return $student
-                    && (mb_strpos(mb_strtolower((string) $student->first_name), $search) !== false
-                        || mb_strpos(mb_strtolower((string) $student->last_name), $search) !== false
-                        || mb_strpos(mb_strtolower((string) $student->parent_name), $search) !== false);
-            });
+                $rows = $rows->filter(function ($row) use ($terms) {
+
+                    $student = $row->student;
+
+                    if (! $student) {
+                        return false;
+                    }
+
+                    foreach ($terms as $term) {
+
+                        $matches = mb_strpos(mb_strtolower((string) $student->first_name), $term) !== false
+                            || mb_strpos(mb_strtolower((string) $student->last_name), $term) !== false
+                            || mb_strpos(mb_strtolower((string) $student->phone), $term) !== false
+                            || mb_strpos(mb_strtolower((string) $student->parent_name), $term) !== false;
+
+                        if (! $matches) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                });
+            }
         }
 
         // =========================

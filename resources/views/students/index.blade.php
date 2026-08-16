@@ -160,6 +160,47 @@
             @endif
 
 
+            <!-- ================= ERREURS ================= -->
+
+            @if($errors->any())
+
+                <div
+                    class="mb-6
+                           flex items-start gap-3
+                           bg-red-50
+                           border border-red-200
+                           text-red-700
+                           px-5 py-4
+                           rounded-2xl
+                           shadow-sm">
+
+                    <div class="w-9 h-9 rounded-full
+                                bg-red-100
+                                flex items-center justify-center">
+
+                        ⚠️
+
+                    </div>
+
+                    <div class="font-medium">
+
+                        @foreach($errors->all() as $error)
+
+                            <p class="{{ !$loop->first ? 'mt-1' : '' }}">
+
+                                {{ $error }}
+
+                            </p>
+
+                        @endforeach
+
+                    </div>
+
+                </div>
+
+            @endif
+
+
             <!-- ================= TOP INTRO ================= -->
 
             <div class="relative overflow-hidden

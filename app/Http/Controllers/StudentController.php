@@ -21,15 +21,7 @@ class StudentController extends Controller
 
         if ($request->filled('search')) {
 
-            $search = $request->search;
-
-            $query->where(function ($q) use ($search) {
-
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('parent_name', 'like', "%{$search}%");
-            });
+            $query->search($request->search);
         }
 
         if ($request->filled('level')) {
@@ -266,6 +258,28 @@ class StudentController extends Controller
                     'level' => 'Le niveau scolaire sélectionné est invalide.',
                 ])
                 ->withInput();
+        }
+
+        // =====================================================
+        // VÉRIFIER LES DOUBLONS MATIÈRE + ENSEIGNANT
+        // =====================================================
+
+        $combinations = [];
+
+        foreach ($validated['enrollments'] as $enrollment) {
+
+            $key = $enrollment['subject_id'].'-'.$enrollment['teacher_id'];
+
+            if (isset($combinations[$key])) {
+
+                return back()
+                    ->withErrors([
+                        'enrollments' => 'Cet enseignant est déjà sélectionné pour cette matière.',
+                    ])
+                    ->withInput();
+            }
+
+            $combinations[$key] = true;
         }
 
         // =====================================================
@@ -511,6 +525,73 @@ class StudentController extends Controller
                 ->withInput();
         }
 
+        // =====================================================
+        // CHANGEMENT DE NIVEAU : VÉRIFIER LES INSCRIPTIONS ACTIVES
+        // =====================================================
+
+        if (
+            strtoupper(trim((string) $student->level))
+            !== strtoupper(trim($validated['level']))
+        ) {
+
+            $cycleCode = $this->cycleCodeForLevel($validated['level']);
+
+            $incompatible = [];
+
+            $enrollments = $student->enrollments()
+                ->where('status', 'active')
+                ->with(['subject', 'teacher'])
+                ->get();
+
+            foreach ($enrollments as $enrollment) {
+
+                $subject = $enrollment->subject;
+                $teacher = $enrollment->teacher;
+
+                $subjectCompatible = $subject
+                    && $subject->active
+                    && $subject->{$cycle};
+
+                $teacherCompatible = false;
+
+                if ($subjectCompatible && $teacher && $teacher->active) {
+
+                    $teacherCompatible = $subject->teachers()
+                        ->where('teachers.id', $teacher->id)
+                        ->where('teachers.active', true)
+                        ->whereHas('levels', function ($query) use ($cycleCode) {
+                            $query->where('code', $cycleCode)
+                                ->where('active', true);
+                        })
+                        ->exists();
+                }
+
+                if (! $subjectCompatible || ! $teacherCompatible) {
+
+                    $subjectName = $subject ? $subject->name : '—';
+
+                    $teacherName = $teacher
+                        ? $teacher->first_name.' '.$teacher->last_name
+                        : '—';
+
+                    $incompatible[] = $subjectName.' ('.$teacherName.')';
+                }
+            }
+
+            if ($incompatible !== []) {
+
+                return back()
+                    ->withErrors([
+                        'level' => 'Impossible de changer le niveau : les inscriptions suivantes ne sont pas compatibles avec le niveau '
+                            .$validated['level']
+                            .' : '
+                            .implode(', ', $incompatible)
+                            .'.',
+                    ])
+                    ->withInput();
+            }
+        }
+
         $student->update($validated);
 
         return redirect()
@@ -526,7 +607,27 @@ class StudentController extends Controller
      */
     public function destroy(Student $student)
     {
-        $student->delete();
+        // Ne jamais supprimer silencieusement l'historique
+        $hasHistory = $student->payments()->exists()
+            || $student->attendances()->exists()
+            || $student->enrollments()->exists();
+
+        if ($hasHistory) {
+
+            return back()
+                ->withErrors([
+                    'student' => 'Impossible de supprimer cet élève car il possède des données historiques (paiements, présences ou inscriptions).',
+                ]);
+        }
+
+        // Aucun historique : suppression contrôlée de l'élève
+        // et de son éventuel compte utilisateur lié.
+        DB::transaction(function () use ($student) {
+
+            $student->user()->delete();
+
+            $student->delete();
+        });
 
         return redirect()
             ->route('students.index')

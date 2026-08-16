@@ -109,7 +109,31 @@
 
                     </div>
 
-                    <div class="mt-8 flex gap-3">
+                    @if($errors->any())
+
+                    <div class="mt-8 w-full
+                                bg-red-50
+                                border border-red-200
+                                text-red-700
+                                px-5 py-4
+                                rounded-2xl">
+
+                        @foreach($errors->all() as $error)
+
+                            <p class="{{ !$loop->first ? 'mt-1' : '' }}">
+
+                                ⚠️ {{ $error }}
+
+                            </p>
+
+                        @endforeach
+
+                    </div>
+
+                @endif
+
+
+                <div class="mt-8 flex gap-3">
 
                         <a href="{{ route('students.edit', $student) }}"
                            class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700">

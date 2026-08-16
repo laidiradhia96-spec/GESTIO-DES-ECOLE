@@ -7,6 +7,7 @@ use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\User;
+use App\Services\PaymentSignalementService;
 
 function activeEnrollment(Student $student, Subject $subject, Teacher $teacher): Enrollment
 {
@@ -229,4 +230,110 @@ test('update rejette l\'ajout d\'un élève non inscrit', function () {
     $response->assertSessionHasErrors('students.1.id');
 
     expect(Attendance::where('student_id', $notEnrolled->id)->count())->toBe(0);
+});
+
+test('supprimer la seule présence du mois supprime le signalement ouvert', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $student = Student::factory()->create();
+    activeEnrollment($student, $subject, $teacher);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'date' => '2026-08-10',
+        'status' => 'present',
+    ]);
+
+    app(PaymentSignalementService::class)->syncFromAttendance($attendance);
+
+    expect(PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-08')
+        ->where('status', 'pending')
+        ->count())->toBe(1);
+
+    $this->actingAs($user)->delete(route('attendances.destroy', $attendance))
+        ->assertRedirect(route('attendances.index'));
+
+    expect(PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-08')
+        ->where('status', 'pending')
+        ->count())->toBe(0);
+});
+
+test('supprimer une présence conserve le signalement si une autre présence reste dans le mois', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $student = Student::factory()->create();
+    activeEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    $first = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'date' => '2026-08-10',
+        'status' => 'present',
+    ]);
+
+    Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'date' => '2026-08-20',
+        'status' => 'late',
+    ]);
+
+    $service->syncFromAttendance($first);
+
+    expect(PaymentSignalement::where('period', '2026-08')
+        ->where('status', 'pending')
+        ->count())->toBe(1);
+
+    $this->actingAs($user)->delete(route('attendances.destroy', $first));
+
+    expect(PaymentSignalement::where('period', '2026-08')
+        ->where('status', 'pending')
+        ->count())->toBe(1);
+});
+
+test('supprimer la seule présence VIP du jour supprime le signalement du jour', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $student = Student::factory()->create();
+
+    Enrollment::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'status' => 'active',
+        'payment_type' => 'vip',
+    ]);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'date' => '2026-08-05',
+        'status' => 'present',
+    ]);
+
+    app(PaymentSignalementService::class)->syncFromAttendance($attendance);
+
+    expect(PaymentSignalement::where('period', '2026-08-05')
+        ->where('status', 'pending')
+        ->count())->toBe(1);
+
+    $this->actingAs($user)->delete(route('attendances.destroy', $attendance));
+
+    expect(PaymentSignalement::where('period', '2026-08-05')
+        ->where('status', 'pending')
+        ->count())->toBe(0);
 });

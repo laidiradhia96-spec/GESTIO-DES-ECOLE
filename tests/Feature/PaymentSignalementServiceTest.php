@@ -263,3 +263,115 @@ test('monthly: an october payment never settles an august debt, even with an aug
     expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(1)
         ->and(PaymentSignalement::where('period', '2026-08')->where('status', 'resolved')->count())->toBe(0);
 });
+
+test('reconcile supprime le signalement mensuel quand la présence supprimée était la seule', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+    monthlyEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'date' => '2026-08-05',
+        'status' => 'present',
+    ]);
+
+    $service->syncFromAttendance($attendance);
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(1);
+
+    $attendance->delete();
+    $service->reconcileAfterAttendanceRemoval($student->id, $subject->id, '2026-08-05');
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(0);
+});
+
+test('reconcile conserve le signalement mensuel si une autre présence justifie le mois', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+    monthlyEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'date' => '2026-08-05',
+        'status' => 'present',
+    ]);
+
+    $service->syncFromAttendance($attendance);
+
+    Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'date' => '2026-08-19',
+        'status' => 'justified',
+    ]);
+
+    $attendance->delete();
+    $service->reconcileAfterAttendanceRemoval($student->id, $subject->id, '2026-08-05');
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(1);
+});
+
+test('reconcile conserve le signalement résolu lors de la suppression d\'une présence', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+    monthlyEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'date' => '2026-08-05',
+        'status' => 'present',
+    ]);
+
+    $service->syncFromAttendance($attendance);
+
+    PaymentSignalement::where('period', '2026-08')->update([
+        'status' => 'resolved',
+        'amount_remaining' => 0,
+    ]);
+
+    $attendance->delete();
+    $service->reconcileAfterAttendanceRemoval($student->id, $subject->id, '2026-08-05');
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'resolved')->count())->toBe(1);
+});
+
+test('reconcile supprime le signalement VIP du jour quand la présence supprimée était la seule', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+    vipEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'date' => '2026-08-05',
+        'status' => 'present',
+    ]);
+
+    $service->syncFromAttendance($attendance);
+
+    expect(PaymentSignalement::where('period', '2026-08-05')->where('status', 'pending')->count())->toBe(1);
+
+    $attendance->delete();
+    $service->reconcileAfterAttendanceRemoval($student->id, $subject->id, '2026-08-05');
+
+    expect(PaymentSignalement::where('period', '2026-08-05')->where('status', 'pending')->count())->toBe(0);
+});

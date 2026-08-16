@@ -61,38 +61,14 @@ Route::get('/dashboard', function () {
         'latestEnrollments'
     ));
 
-})->middleware(['auth', 'verified'])
+})->middleware(['auth', 'verified', 'admin'])
     ->name('dashboard');
 
 // ==========================================================
-// ROUTES AUTHENTIFIÉES
+// ROUTES AUTHENTIFIÉES (TOUS LES RÔLES)
 // ==========================================================
 
 Route::middleware('auth')->group(function () {
-
-    // ======================================================
-    // PAIEMENTS
-    // ======================================================
-
-    Route::get(
-        '/payments/unpaid',
-        [PaymentController::class, 'unpaid']
-    )->name('payments.unpaid');
-
-    Route::resource(
-        'payments',
-        PaymentController::class
-    )->only([
-        'index',
-        'create',
-        'store',
-        'show',
-    ]);
-
-    Route::get(
-        '/payments/{payment}/print',
-        [PaymentController::class, 'print']
-    )->name('payments.print');
 
     // ======================================================
     // PROFILE
@@ -112,6 +88,40 @@ Route::middleware('auth')->group(function () {
         '/profile',
         [ProfileController::class, 'destroy']
     )->name('profile.destroy');
+
+});
+
+// ==========================================================
+// ROUTES ADMINISTRATION (AUTH + ADMIN)
+// ==========================================================
+
+Route::middleware(['auth', 'admin'])->group(function () {
+
+    // ======================================================
+    // PAIEMENTS
+    // ======================================================
+
+    Route::get(
+        '/payments/unpaid',
+        [PaymentController::class, 'unpaid']
+    )->name('payments.unpaid');
+
+    Route::resource(
+        'payments',
+        PaymentController::class
+    )->only([
+        'index',
+        'create',
+        'store',
+        'show',
+        'edit',
+        'update',
+    ]);
+
+    Route::get(
+        '/payments/{payment}/print',
+        [PaymentController::class, 'print']
+    )->name('payments.print');
 
     // ======================================================
     // ENSEIGNANTS

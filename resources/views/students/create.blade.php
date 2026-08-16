@@ -1307,6 +1307,15 @@
 
                         </p>
 
+
+                        <p class="duplicate-warning
+                                  mt-1 text-sm text-red-600
+                                  hidden">
+
+                            Cet enseignant est déjà sélectionné pour cette matière.
+
+                        </p>
+
                     </div>
 
 
@@ -1427,6 +1436,16 @@
 
 
             // =================================================
+            // CHANGEMENT ENSEIGNANT
+            // =================================================
+
+            teacherSelect.addEventListener(
+                'change',
+                checkDuplicates
+            );
+
+
+            // =================================================
             // SUPPRIMER
             // =================================================
 
@@ -1440,8 +1459,99 @@
 
                     updateNumbers();
 
+                    checkDuplicates();
+
                 }
             );
+
+        }
+
+
+        // =====================================================
+        // VÉRIFIER LES DOUBLONS MATIÈRE + ENSEIGNANT
+        // =====================================================
+
+        function checkDuplicates() {
+
+            const rows =
+                container.querySelectorAll(
+                    '.enrollment-row'
+                );
+
+            const seen = new Map();
+
+            let hasDuplicate = false;
+
+            rows.forEach(row => {
+
+                const subjectSelect =
+                    row.querySelector(
+                        '.subject-select'
+                    );
+
+                const teacherSelect =
+                    row.querySelector(
+                        '.teacher-select'
+                    );
+
+                const warning =
+                    row.querySelector(
+                        '.duplicate-warning'
+                    );
+
+                warning.classList.add('hidden');
+
+                row.classList.remove(
+                    'border-red-400'
+                );
+
+                const subjectId =
+                    subjectSelect.value;
+
+                const teacherId =
+                    teacherSelect.value;
+
+                if (!subjectId || !teacherId) {
+
+                    return;
+
+                }
+
+                const key =
+                    subjectId + '-' + teacherId;
+
+                if (seen.has(key)) {
+
+                    hasDuplicate = true;
+
+                    const previousRow =
+                        seen.get(key);
+
+                    previousRow.classList.add(
+                        'border-red-400'
+                    );
+
+                    previousRow.querySelector(
+                        '.duplicate-warning'
+                    ).classList.remove('hidden');
+
+                    row.classList.add(
+                        'border-red-400'
+                    );
+
+                    warning.classList.remove(
+                        'hidden'
+                    );
+
+                } else {
+
+                    seen.set(key, row);
+
+                }
+
+            });
+
+            return !hasDuplicate;
 
         }
 
@@ -1583,6 +1693,9 @@
                         delete teacherSelect.dataset.restore;
 
                     }
+
+
+                    checkDuplicates();
 
                 })
 
@@ -1772,6 +1885,41 @@
         } else {
 
             createEnrollmentRow();
+
+        }
+
+
+        // =====================================================
+        // BLOQUER L'ENVOI SI DOUBLON
+        // =====================================================
+
+        const enrollmentForm =
+            container.closest('form');
+
+
+        if (enrollmentForm) {
+
+            enrollmentForm.addEventListener(
+                'submit',
+                function (event) {
+
+                    if (!checkDuplicates()) {
+
+                        event.preventDefault();
+
+                        enrollmentForm
+                            .querySelector(
+                                '.enrollment-row.border-red-400'
+                            )
+                            ?.querySelector(
+                                '.subject-select'
+                            )
+                            ?.focus();
+
+                    }
+
+                }
+            );
 
         }
 

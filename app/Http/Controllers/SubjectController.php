@@ -2,6 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
+use App\Models\ClassSession;
+use App\Models\Payment;
+use App\Models\PaymentSignalement;
 use App\Models\Subject;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
@@ -194,6 +198,21 @@ class SubjectController extends Controller
      */
     public function destroy(Subject $subject)
     {
+        // Ne jamais supprimer silencieusement des données métier liées
+        $hasBusinessData = $subject->enrollments()->exists()
+            || Attendance::where('subject_id', $subject->id)->exists()
+            || ClassSession::where('subject_id', $subject->id)->exists()
+            || Payment::where('subject_id', $subject->id)->exists()
+            || PaymentSignalement::where('subject_id', $subject->id)->exists();
+
+        if ($hasBusinessData) {
+
+            return back()->with(
+                'error',
+                'Impossible de supprimer cette matière : elle est liée à des inscriptions, présences, séances, paiements ou signalements existants.'
+            );
+        }
+
         $subject->delete();
 
         return redirect()

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\Student;
 use App\Models\Subject;
@@ -31,9 +32,7 @@ class PaymentController extends Controller
 
             $query->whereHas('student', function ($q) use ($search) {
 
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('parent_name', 'like', "%{$search}%");
+                $q->search($search);
             });
         }
 
@@ -221,6 +220,17 @@ class PaymentController extends Controller
                 'max:50',
             ],
 
+            'payment_date' => [
+                'nullable',
+                'date',
+                'before_or_equal:today',
+            ],
+
+            'payment_time' => [
+                'nullable',
+                'date_format:H:i',
+            ],
+
             'note' => [
                 'nullable',
                 'string',
@@ -239,6 +249,25 @@ class PaymentController extends Controller
             return back()
                 ->withErrors([
                     'amount_paid' => 'Le montant payé ne peut pas dépasser le montant demandé.',
+                ])
+                ->withInput();
+        }
+
+        // =========================
+        // VÉRIFICATION INSCRIPTION
+        // =========================
+
+        $isEnrolled = Enrollment::query()
+            ->where('student_id', $validated['student_id'])
+            ->where('subject_id', $validated['subject_id'])
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $isEnrolled) {
+
+            return back()
+                ->withErrors([
+                    'student_id' => "L'élève sélectionné n'est pas inscrit à cette matière.",
                 ])
                 ->withInput();
         }
@@ -299,9 +328,11 @@ class PaymentController extends Controller
 
                 'payment_method' => $validated['payment_method'],
 
-                'payment_date' => now()->toDateString(),
+                'payment_date' => $validated['payment_date'] ?? now()->toDateString(),
 
-                'payment_time' => now()->format('H:i:s'),
+                'payment_time' => isset($validated['payment_time'])
+                    ? $validated['payment_time'].':00'
+                    : now()->format('H:i:s'),
 
                 'note' => $validated['note'] ?? null,
             ]);
@@ -337,5 +368,261 @@ class PaymentController extends Controller
             'payments.show',
             compact('payment')
         );
+    }
+
+    /**
+     * Liste des paiements non soldés
+     */
+    public function unpaid(Request $request)
+    {
+        $query = Payment::with([
+            'student',
+            'subject',
+        ])->where('remaining_amount', '>', 0);
+
+        // =========================
+        // RECHERCHE
+        // =========================
+
+        if ($request->filled('search')) {
+
+            $search = trim($request->search);
+
+            $query->whereHas('student', function ($q) use ($search) {
+
+                $q->search($search);
+            });
+        }
+
+        // =========================
+        // FILTRE MATIÈRE
+        // =========================
+
+        if ($request->filled('subject_id')) {
+
+            $query->where(
+                'subject_id',
+                $request->subject_id
+            );
+        }
+
+        // =========================
+        // FILTRE TYPE
+        // =========================
+
+        if ($request->filled('payment_type')) {
+
+            $query->where(
+                'payment_type',
+                $request->payment_type
+            );
+        }
+
+        // =========================
+        // FILTRE PÉRIODE
+        // =========================
+
+        if ($request->filled('period')) {
+
+            $query->where(
+                'period',
+                $request->period
+            );
+        }
+
+        // =========================
+        // LISTE
+        // =========================
+
+        $payments = $query
+            ->latest('payment_date')
+            ->latest('payment_time')
+            ->paginate(10)
+            ->withQueryString();
+
+        $subjects = Subject::orderBy('name')->get();
+
+        return view(
+            'payments.unpaid',
+            compact(
+                'payments',
+                'subjects'
+            )
+        );
+    }
+
+    /**
+     * Impression du reçu
+     */
+    public function print(Payment $payment)
+    {
+        $payment->load([
+            'student',
+            'subject',
+        ]);
+
+        return view(
+            'payments.print',
+            compact('payment')
+        );
+    }
+
+    /**
+     * Formulaire de modification
+     */
+    public function edit(Payment $payment)
+    {
+        $students = Student::query()
+            ->orderBy('last_name')
+            ->orderBy('first_name')
+            ->get();
+
+        $subjects = Subject::query()
+            ->orderBy('name')
+            ->get();
+
+        $payment->load([
+            'student',
+            'subject',
+        ]);
+
+        return view(
+            'payments.edit',
+            compact(
+                'payment',
+                'students',
+                'subjects'
+            )
+        );
+    }
+
+    /**
+     * Mettre à jour un paiement
+     */
+    public function update(Request $request, Payment $payment)
+    {
+        $validated = $request->validate([
+
+            'subject_id' => [
+                'required',
+                'exists:subjects,id',
+            ],
+
+            'payment_type' => [
+                'required',
+                'in:monthly,vip',
+            ],
+
+            'period' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            'amount_due' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
+            'amount_paid' => [
+                'required',
+                'numeric',
+                'min:0',
+            ],
+
+            'payment_method' => [
+                'required',
+                'string',
+                'max:50',
+            ],
+
+            'payment_date' => [
+                'nullable',
+                'date',
+                'before_or_equal:today',
+            ],
+
+            'payment_time' => [
+                'nullable',
+                'date_format:H:i',
+            ],
+
+            'note' => [
+                'nullable',
+                'string',
+            ],
+        ]);
+
+        // =========================
+        // VÉRIFICATION MONTANT
+        // =========================
+
+        if (
+            $validated['amount_paid']
+            > $validated['amount_due']
+        ) {
+
+            return back()
+                ->withErrors([
+                    'amount_paid' => 'Le montant payé ne peut pas dépasser le montant demandé.',
+                ])
+                ->withInput();
+        }
+
+        DB::transaction(function () use ($validated, $payment) {
+
+            // =========================
+            // CALCUL DU RESTE
+            // =========================
+
+            $remaining =
+                (float) $validated['amount_due']
+                -
+                (float) $validated['amount_paid'];
+
+            // =========================
+            // MISE À JOUR
+            // =========================
+
+            $payment->update([
+
+                'subject_id' => $validated['subject_id'],
+
+                'payment_type' => $validated['payment_type'],
+
+                'period' => $validated['period'],
+
+                'amount_due' => $validated['amount_due'],
+
+                'amount_paid' => $validated['amount_paid'],
+
+                'remaining_amount' => $remaining,
+
+                'payment_method' => $validated['payment_method'],
+
+                'payment_date' => $validated['payment_date'] ?? $payment->payment_date?->toDateString(),
+
+                'payment_time' => isset($validated['payment_time'])
+                    ? $validated['payment_time'].':00'
+                    : $payment->payment_time,
+
+                'note' => $validated['note'] ?? null,
+            ]);
+
+            // =========================
+            // MISE À JOUR DES SIGNALEMENTS
+            // =========================
+
+            app(PaymentSignalementService::class)
+                ->syncFromPayment($payment);
+        });
+
+        return redirect()
+            ->route('payments.index')
+            ->with(
+                'success',
+                'Paiement modifié avec succès.'
+            );
     }
 }

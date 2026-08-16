@@ -204,6 +204,44 @@
             @endif
 
 
+            <!-- ================= ERROR ================= -->
+
+            @if(session('error'))
+
+                <div class="mb-6 flex items-center gap-4
+                            rounded-2xl
+                            border border-red-200
+                            bg-red-50
+                            px-5 py-4
+                            text-red-700
+                            shadow-sm">
+
+                    <div class="w-10 h-10 rounded-full
+                                bg-red-100
+                                flex items-center justify-center
+                                text-lg">
+
+                        ⚠
+
+                    </div>
+
+                    <div>
+
+                        <p class="font-bold">
+                            Action impossible
+                        </p>
+
+                        <p class="text-sm">
+                            {{ session('error') }}
+                        </p>
+
+                    </div>
+
+                </div>
+
+            @endif
+
+
             <!-- ================= SEARCH ================= -->
 
             <div class="bg-white dark:bg-gray-800

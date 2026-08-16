@@ -32,9 +32,7 @@ class AttendanceController extends Controller
 
             $query->whereHas('student', function ($q) use ($search) {
 
-                $q->where('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
-                    ->orWhere('parent_name', 'like', "%{$search}%");
+                $q->search($search);
             });
         }
 
@@ -500,7 +498,27 @@ class AttendanceController extends Controller
         Attendance $attendance
     ) {
 
+        $studentId = $attendance->student_id;
+
+        $subjectId = $attendance->subject_id;
+
+        $date = $attendance->date
+            ? $attendance->date->toDateString()
+            : null;
+
         $attendance->delete();
+
+        // Réconcilier la dette : supprimer le signalement ouvert
+        // uniquement si plus aucune présence ne le justifie.
+        if ($studentId && $subjectId && $date) {
+
+            app(PaymentSignalementService::class)
+                ->reconcileAfterAttendanceRemoval(
+                    $studentId,
+                    $subjectId,
+                    $date
+                );
+        }
 
         return redirect()
             ->route('attendances.index', request()->query())

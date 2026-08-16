@@ -242,6 +242,63 @@ test('store rejette un enseignant inactif même lié à la matière et au bon cy
     expect(Student::where('first_name', 'Yasmine')->exists())->toBeFalse();
 });
 
+test('store rejette un doublon matière + enseignant dans les inscriptions', function () {
+    $user = User::factory()->create();
+    $subject = primaireSubject();
+    $teacher = cycleTeacher('Ahmed', 'Benali', 'PRI');
+    $subject->teachers()->attach($teacher);
+
+    $this->actingAs($user)->post(route('students.store'), [
+        'first_name' => 'Yasmine',
+        'last_name' => 'Haddad',
+        'level' => '1AP',
+        'enrollments' => [
+            [
+                'subject_id' => $subject->id,
+                'teacher_id' => $teacher->id,
+                'payment_type' => 'monthly',
+            ],
+            [
+                'subject_id' => $subject->id,
+                'teacher_id' => $teacher->id,
+                'payment_type' => 'vip',
+            ],
+        ],
+    ])->assertSessionHasErrors('enrollments');
+
+    expect(Student::where('first_name', 'Yasmine')->exists())->toBeFalse();
+});
+
+test('store accepte deux matières différentes avec le même enseignant', function () {
+    $user = User::factory()->create();
+    $subject1 = primaireSubject();
+    $subject2 = primaireSubject();
+    $teacher = cycleTeacher('Ahmed', 'Benali', 'PRI');
+    $subject1->teachers()->attach($teacher);
+    $subject2->teachers()->attach($teacher);
+
+    $this->actingAs($user)->post(route('students.store'), [
+        'first_name' => 'Yasmine',
+        'last_name' => 'Haddad',
+        'level' => '1AP',
+        'enrollments' => [
+            [
+                'subject_id' => $subject1->id,
+                'teacher_id' => $teacher->id,
+                'payment_type' => 'monthly',
+            ],
+            [
+                'subject_id' => $subject2->id,
+                'teacher_id' => $teacher->id,
+                'payment_type' => 'monthly',
+            ],
+        ],
+    ])->assertRedirect(route('students.index'))
+        ->assertSessionHas('success');
+
+    expect(Student::where('first_name', 'Yasmine')->first()->enrollments)->toHaveCount(2);
+});
+
 test('AJAX et store retournent le même enseignant pour un même niveau', function () {
     $user = User::factory()->create();
     $subject = primaireSubject();

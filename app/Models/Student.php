@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -24,6 +25,40 @@ class Student extends Model
     protected $casts = [
         'date_of_birth' => 'date',
     ];
+
+    /**
+     * Recherche multi-termes : nom, prénom, nom complet, téléphone.
+     *
+     * Chaque terme (séparé par des espaces) doit correspondre à au moins
+     * un champ de l'élève (AND entre les termes), ce qui permet les
+     * recherches "Nom Prénom", "Nom" seul ou "Prénom" seul.
+     */
+    public function scopeSearch(Builder $query, ?string $search): Builder
+    {
+        if ($search === null || trim($search) === '') {
+            return $query;
+        }
+
+        $terms = preg_split(
+            '/\s+/',
+            trim($search),
+            -1,
+            PREG_SPLIT_NO_EMPTY
+        ) ?: [];
+
+        foreach ($terms as $term) {
+
+            $query->where(function (Builder $q) use ($term) {
+
+                $q->where('first_name', 'like', "%{$term}%")
+                    ->orWhere('last_name', 'like', "%{$term}%")
+                    ->orWhere('phone', 'like', "%{$term}%")
+                    ->orWhere('parent_name', 'like', "%{$term}%");
+            });
+        }
+
+        return $query;
+    }
 
     /**
      * Compte utilisateur de l'élève

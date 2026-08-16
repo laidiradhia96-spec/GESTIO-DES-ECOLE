@@ -15,16 +15,16 @@
                     {{-- Icon --}}
                     <div class="w-14 h-14 rounded-2xl bg-[#0B2A55]
                                 flex items-center justify-center shadow-md">
-                        <span class="text-2xl">💳</span>
+                        <span class="text-2xl">⚠️</span>
                     </div>
 
                     <div>
                         <h2 class="font-extrabold text-2xl text-[#0B2A55]">
-                            Paiements
+                            Paiements impayés
                         </h2>
 
                         <p class="text-sm text-gray-500 mt-1">
-                            Gestion et suivi des paiements des élèves.
+                            Paiements partiels ou non soldés des élèves.
                         </p>
                     </div>
 
@@ -73,7 +73,6 @@
                         shadow-xl
                         mb-8">
 
-                {{-- Decorative circles --}}
                 <div class="absolute -right-16 -top-20
                             w-64 h-64
                             rounded-full
@@ -102,11 +101,11 @@
                         <h1 class="text-3xl md:text-4xl
                                    font-extrabold
                                    text-white">
-                            Gestion des paiements
+                            Paiements non soldés
                         </h1>
 
                         <span class="text-3xl">
-                            💳
+                            ⚠️
                         </span>
 
                     </div>
@@ -114,304 +113,8 @@
                     <p class="mt-3
                               text-blue-100
                               text-base md:text-lg">
-                        Suivez les paiements, les montants restants
-                        et les situations financières des élèves.
+                        Les paiements avec un reste à payer apparaissent ici.
                     </p>
-
-                </div>
-
-            </div>
-
-
-            {{-- =================================================
-                STATISTIQUES PRINCIPALES
-            ================================================== --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-
-
-                {{-- TOTAL ENCAISSÉ --}}
-                <div class="relative overflow-hidden
-                            bg-white
-                            rounded-3xl
-                            border border-gray-100
-                            shadow-sm
-                            hover:shadow-md
-                            transition">
-
-                    <div class="absolute right-0 top-0
-                                w-32 h-32
-                                bg-green-50
-                                rounded-bl-full">
-                    </div>
-
-                    <div class="relative p-6">
-
-                        <div class="flex items-center justify-between">
-
-                            <div class="w-14 h-14
-                                        rounded-2xl
-                                        bg-green-100
-                                        flex items-center justify-center
-                                        text-2xl">
-                                💰
-                            </div>
-
-                            <span class="px-4 py-2
-                                         rounded-full
-                                         bg-green-50
-                                         text-green-600
-                                         text-xs
-                                         font-extrabold
-                                         uppercase">
-                                Encaissé
-                            </span>
-
-                        </div>
-
-                        <p class="mt-6 text-sm text-gray-500">
-                            Total encaissé
-                        </p>
-
-                        <p class="mt-1
-                                  text-3xl
-                                  font-extrabold
-                                  text-[#0B2A55]">
-                            {{ number_format($totalPaid ?? 0, 2, ',', ' ') }}
-                            <span class="text-base font-bold">DA</span>
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                {{-- TOTAL DÛ --}}
-                <div class="relative overflow-hidden
-                            bg-white
-                            rounded-3xl
-                            border border-gray-100
-                            shadow-sm
-                            hover:shadow-md
-                            transition">
-
-                    <div class="absolute right-0 top-0
-                                w-32 h-32
-                                bg-blue-50
-                                rounded-bl-full">
-                    </div>
-
-                    <div class="relative p-6">
-
-                        <div class="flex items-center justify-between">
-
-                            <div class="w-14 h-14
-                                        rounded-2xl
-                                        bg-blue-100
-                                        flex items-center justify-center
-                                        text-2xl">
-                                📋
-                            </div>
-
-                            <span class="px-4 py-2
-                                         rounded-full
-                                         bg-blue-50
-                                         text-blue-600
-                                         text-xs
-                                         font-extrabold
-                                         uppercase">
-                                Total
-                            </span>
-
-                        </div>
-
-                        <p class="mt-6 text-sm text-gray-500">
-                            Total dû
-                        </p>
-
-                        <p class="mt-1
-                                  text-3xl
-                                  font-extrabold
-                                  text-[#0B2A55]">
-                            {{ number_format($totalDue ?? 0, 2, ',', ' ') }}
-                            <span class="text-base font-bold">DA</span>
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                {{-- RESTE À PAYER --}}
-                <div class="relative overflow-hidden
-                            bg-white
-                            rounded-3xl
-                            border border-gray-100
-                            shadow-sm
-                            hover:shadow-md
-                            transition">
-
-                    <div class="absolute right-0 top-0
-                                w-32 h-32
-                                bg-red-50
-                                rounded-bl-full">
-                    </div>
-
-                    <div class="relative p-6">
-
-                        <div class="flex items-center justify-between">
-
-                            <div class="w-14 h-14
-                                        rounded-2xl
-                                        bg-red-100
-                                        flex items-center justify-center
-                                        text-2xl">
-                                ⚠️
-                            </div>
-
-                            <span class="px-4 py-2
-                                         rounded-full
-                                         bg-red-50
-                                         text-red-600
-                                         text-xs
-                                         font-extrabold
-                                         uppercase">
-                                Restant
-                            </span>
-
-                        </div>
-
-                        <p class="mt-6 text-sm text-gray-500">
-                            Reste à payer
-                        </p>
-
-                        <p class="mt-1
-                                  text-3xl
-                                  font-extrabold
-                                  text-red-600">
-                            {{ number_format($totalRemaining ?? 0, 2, ',', ' ') }}
-                            <span class="text-base font-bold">DA</span>
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-
-            {{-- =================================================
-                STATISTIQUES DES STATUTS
-            ================================================== --}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-
-
-                {{-- PAYÉS --}}
-                <div class="bg-green-50
-                            border border-green-200
-                            rounded-3xl
-                            p-6
-                            flex items-center justify-between">
-
-                    <div>
-
-                        <p class="text-green-700 font-bold">
-                            Paiements complets
-                        </p>
-
-                        <p class="text-3xl
-                                  font-extrabold
-                                  text-green-700
-                                  mt-2">
-                            {{ $paidCount ?? 0 }}
-                        </p>
-
-                        <p class="text-sm text-green-600 mt-1">
-                            paiement(s)
-                        </p>
-
-                    </div>
-
-                    <div class="w-14 h-14
-                                rounded-2xl
-                                bg-green-100
-                                flex items-center justify-center
-                                text-3xl">
-                        ✅
-                    </div>
-
-                </div>
-
-
-                {{-- PARTIELS --}}
-                <div class="bg-yellow-50
-                            border border-yellow-200
-                            rounded-3xl
-                            p-6
-                            flex items-center justify-between">
-
-                    <div>
-
-                        <p class="text-yellow-700 font-bold">
-                            Paiements partiels
-                        </p>
-
-                        <p class="text-3xl
-                                  font-extrabold
-                                  text-yellow-700
-                                  mt-2">
-                            {{ $partialCount ?? 0 }}
-                        </p>
-
-                        <p class="text-sm text-yellow-600 mt-1">
-                            paiement(s)
-                        </p>
-
-                    </div>
-
-                    <div class="w-14 h-14
-                                rounded-2xl
-                                bg-yellow-100
-                                flex items-center justify-center
-                                text-3xl">
-                        🟠
-                    </div>
-
-                </div>
-
-
-                {{-- IMPAYÉS --}}
-                <div class="bg-red-50
-                            border border-red-200
-                            rounded-3xl
-                            p-6
-                            flex items-center justify-between">
-
-                    <div>
-
-                        <p class="text-red-700 font-bold">
-                            Non payés
-                        </p>
-
-                        <p class="text-3xl
-                                  font-extrabold
-                                  text-red-700
-                                  mt-2">
-                            {{ $unpaidCount ?? 0 }}
-                        </p>
-
-                        <p class="text-sm text-red-600 mt-1">
-                            paiement(s)
-                        </p>
-
-                    </div>
-
-                    <div class="w-14 h-14
-                                rounded-2xl
-                                bg-red-100
-                                flex items-center justify-center
-                                text-3xl">
-                        ❌
-                    </div>
 
                 </div>
 
@@ -443,7 +146,7 @@
                         <h3 class="text-lg
                                    font-extrabold
                                    text-[#0B2A55]">
-                            Rechercher un paiement
+                            Rechercher un paiement impayé
                         </h3>
 
                         <p class="text-sm text-gray-500">
@@ -456,10 +159,9 @@
 
 
                 <form method="GET"
-                      action="{{ route('payments.index') }}">
+                      action="{{ route('payments.unpaid') }}">
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
                         {{-- Recherche --}}
                         <div class="md:col-span-2">
@@ -565,50 +267,6 @@
 
                         </div>
 
-
-                        {{-- Statut --}}
-                        <div>
-
-                            <label class="block
-                                          text-sm
-                                          font-bold
-                                          text-gray-700
-                                          mb-2">
-                                Statut
-                            </label>
-
-                            <select
-                                name="status"
-                                class="w-full
-                                       rounded-xl
-                                       border-gray-200
-                                       focus:border-[#0B2A55]
-                                       focus:ring-[#0B2A55]"
-                            >
-
-                                <option value="">
-                                    Tous les statuts
-                                </option>
-
-                                <option value="paid"
-                                    {{ request('status') == 'paid' ? 'selected' : '' }}>
-                                    ✅ Payé
-                                </option>
-
-                                <option value="partial"
-                                    {{ request('status') == 'partial' ? 'selected' : '' }}>
-                                    🟠 Partiel
-                                </option>
-
-                                <option value="unpaid"
-                                    {{ request('status') == 'unpaid' ? 'selected' : '' }}>
-                                    ❌ Non payé
-                                </option>
-
-                            </select>
-
-                        </div>
-
                     </div>
 
 
@@ -629,7 +287,7 @@
                         </button>
 
 
-                        <a href="{{ route('payments.index') }}"
+                        <a href="{{ route('payments.unpaid') }}"
                            class="px-6 py-3
                                   rounded-xl
                                   bg-gray-100
@@ -647,30 +305,6 @@
                 </form>
 
             </div>
-
-
-            {{-- =================================================
-                MESSAGE SUCCESS
-            ================================================== --}}
-            @if(session('success'))
-
-                <div class="mb-6
-                            bg-green-50
-                            border border-green-200
-                            text-green-700
-                            rounded-2xl
-                            px-5 py-4
-                            flex items-center gap-3">
-
-                    <span class="text-xl">✅</span>
-
-                    <span class="font-semibold">
-                        {{ session('success') }}
-                    </span>
-
-                </div>
-
-            @endif
 
 
             {{-- =================================================
@@ -740,14 +374,6 @@
                                 </th>
 
                                 <th class="px-6 py-4
-                                           text-left
-                                           text-sm
-                                           font-extrabold
-                                           text-[#0B2A55]">
-                                    Statut
-                                </th>
-
-                                <th class="px-6 py-4
                                            text-right
                                            text-sm
                                            font-extrabold
@@ -766,9 +392,7 @@
 
                                 @php
 
-                                    if ($payment->remaining_amount == 0 && $payment->amount_paid > 0) {
-                                        $status = 'paid';
-                                    } elseif ($payment->amount_paid > 0 && $payment->remaining_amount > 0) {
+                                    if ($payment->amount_paid > 0 && $payment->remaining_amount > 0) {
                                         $status = 'partial';
                                     } else {
                                         $status = 'unpaid';
@@ -860,59 +484,10 @@
                                     {{-- Reste --}}
                                     <td class="px-6 py-5">
 
-                                        <span class="font-bold
-                                            {{ $payment->remaining_amount > 0
-                                                ? 'text-red-600'
-                                                : 'text-green-600' }}">
-
+                                        <span class="font-bold text-red-600">
                                             {{ number_format($payment->remaining_amount, 2, ',', ' ') }}
                                             DA
-
                                         </span>
-
-                                    </td>
-
-
-                                    {{-- Statut --}}
-                                    <td class="px-6 py-5">
-
-                                        @if($status === 'paid')
-
-                                            <span class="inline-flex items-center gap-1
-                                                         px-3 py-1
-                                                         rounded-full
-                                                         bg-green-100
-                                                         text-green-700
-                                                         text-sm
-                                                         font-bold">
-                                                ✅ Payé
-                                            </span>
-
-                                        @elseif($status === 'partial')
-
-                                            <span class="inline-flex items-center gap-1
-                                                         px-3 py-1
-                                                         rounded-full
-                                                         bg-yellow-100
-                                                         text-yellow-700
-                                                         text-sm
-                                                         font-bold">
-                                                🟠 Partiel
-                                            </span>
-
-                                        @else
-
-                                            <span class="inline-flex items-center gap-1
-                                                         px-3 py-1
-                                                         rounded-full
-                                                         bg-red-100
-                                                         text-red-700
-                                                         text-sm
-                                                         font-bold">
-                                                ❌ Non payé
-                                            </span>
-
-                                        @endif
 
                                     </td>
 
@@ -934,30 +509,6 @@
                                                 Voir
                                             </a>
 
-                                            <a href="{{ route('payments.edit', $payment) }}"
-                                               class="px-4 py-2
-                                                      rounded-xl
-                                                      bg-amber-100
-                                                      text-amber-700
-                                                      font-semibold
-                                                      text-sm
-                                                      hover:bg-amber-200
-                                                      transition">
-                                                Modifier
-                                            </a>
-
-                                            <a href="{{ route('payments.print', $payment) }}"
-                                               class="px-4 py-2
-                                                      rounded-xl
-                                                      bg-blue-100
-                                                      text-blue-700
-                                                      font-semibold
-                                                      text-sm
-                                                      hover:bg-blue-200
-                                                      transition">
-                                                🖨️ Reçu
-                                            </a>
-
                                         </div>
 
                                     </td>
@@ -968,7 +519,7 @@
 
                                 <tr>
 
-                                    <td colspan="8"
+                                    <td colspan="7"
                                         class="px-6 py-16 text-center">
 
                                         <div class="flex flex-col
@@ -988,27 +539,14 @@
                                             <h3 class="text-lg
                                                        font-extrabold
                                                        text-[#0B2A55]">
-                                                Aucun paiement trouvé
+                                                Aucun paiement impayé
                                             </h3>
 
                                             <p class="text-sm
                                                       text-gray-500
                                                       mt-1">
-                                                Aucun paiement ne correspond
-                                                aux critères sélectionnés.
+                                                Tous les paiements sont soldés.
                                             </p>
-
-                                            <a href="{{ route('payments.create') }}"
-                                               class="mt-5
-                                                      px-5 py-3
-                                                      rounded-xl
-                                                      bg-[#0B2A55]
-                                                      text-white
-                                                      font-bold
-                                                      hover:bg-[#061A33]
-                                                      transition">
-                                                + Nouveau paiement
-                                            </a>
 
                                         </div>
 
@@ -1044,4 +582,3 @@
     </div>
 
 </x-app-layout>
-```

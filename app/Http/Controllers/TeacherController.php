@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attendance;
+use App\Models\ClassSession;
 use App\Models\Level;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -171,6 +173,19 @@ class TeacherController extends Controller
      */
     public function destroy(Teacher $teacher)
     {
+        // Ne jamais supprimer silencieusement des données métier liées
+        $hasBusinessData = $teacher->enrollments()->exists()
+            || ClassSession::where('teacher_id', $teacher->id)->exists()
+            || Attendance::where('teacher_id', $teacher->id)->exists();
+
+        if ($hasBusinessData) {
+
+            return back()->with(
+                'error',
+                'Impossible de supprimer cet enseignant : il est lié à des inscriptions, séances ou présences existantes.'
+            );
+        }
+
         $teacher->levels()->detach();
 
         $teacher->delete();

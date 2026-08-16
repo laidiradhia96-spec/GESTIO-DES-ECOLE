@@ -12,11 +12,11 @@
 
             <div>
                 <h2 class="font-extrabold text-2xl text-[#0B2A55] dark:text-white">
-                    Nouveau paiement
+                    Modifier le paiement
                 </h2>
 
                 <p class="text-sm text-gray-500 mt-1">
-                    Enregistrer le paiement d'un élève.
+                    Modifier le paiement {{ $payment->receipt_number }}.
                 </p>
             </div>
 
@@ -60,18 +60,6 @@
         @endif
 
 
-        {{-- SUCCÈS --}}
-        @if (session('success'))
-
-            <div class="mb-6 bg-green-50 border border-green-200 text-green-700 rounded-2xl p-5">
-
-                {{ session('success') }}
-
-            </div>
-
-        @endif
-
-
         {{-- HEADER --}}
         <div class="bg-gradient-to-r from-[#061A33] via-[#0B2A55] to-[#163E73] rounded-3xl shadow-xl p-6 md:p-8 mb-7">
 
@@ -80,11 +68,11 @@
             </p>
 
             <h1 class="text-2xl md:text-3xl text-white font-extrabold mt-1">
-                Enregistrer un paiement 💳
+                Modifier le paiement 💳
             </h1>
 
             <p class="text-blue-100 text-sm md:text-base mt-2">
-                Paiement mensuel ou VIP journalier.
+                Reçu : {{ $payment->receipt_number }}
             </p>
 
         </div>
@@ -103,10 +91,11 @@
 
 
             <form method="POST"
-                  action="{{ route('payments.store') }}"
+                  action="{{ route('payments.update', $payment) }}"
                   class="p-6 md:p-8">
 
                 @csrf
+                @method('PUT')
 
 
                 {{-- ===================================================== --}}
@@ -124,17 +113,14 @@
 
                     <select id="student_id"
                             name="student_id"
+                            disabled
                             required
-                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
-
-                        <option value="">
-                            -- Sélectionner un élève --
-                        </option>
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-100 outline-none cursor-not-allowed">
 
                         @foreach($students as $student)
 
                             <option value="{{ $student->id }}"
-                                {{ old('student_id') == $student->id ? 'selected' : '' }}>
+                                {{ $payment->student_id == $student->id ? 'selected' : '' }}>
 
                                 {{ $student->last_name }}
                                 {{ $student->first_name }}
@@ -148,6 +134,12 @@
                         @endforeach
 
                     </select>
+
+                    <p class="text-xs text-gray-500 mt-2">
+
+                        ℹ️ L'élève d'un paiement ne peut pas être modifié.
+
+                    </p>
 
                 </div>
 
@@ -177,7 +169,7 @@
                         @foreach($subjects as $subject)
 
                             <option value="{{ $subject->id }}"
-                                {{ old('subject_id') == $subject->id ? 'selected' : '' }}>
+                                {{ old('subject_id', $payment->subject_id) == $subject->id ? 'selected' : '' }}>
 
                                 {{ $subject->name }}
 
@@ -213,33 +205,21 @@
                             required
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
 
-                        <option value="">
-                            -- Sélectionner le type --
-                        </option>
-
                         <option value="monthly"
-                            {{ old('payment_type') == 'monthly' ? 'selected' : '' }}>
+                            {{ old('payment_type', $payment->payment_type) == 'monthly' ? 'selected' : '' }}>
 
                             📅 Abonnement mensuel
 
                         </option>
 
                         <option value="vip"
-                            {{ old('payment_type') == 'vip' ? 'selected' : '' }}>
+                            {{ old('payment_type', $payment->payment_type) == 'vip' ? 'selected' : '' }}>
 
                             ⭐ VIP / Paiement journalier
 
                         </option>
 
                     </select>
-
-
-                    <p class="text-xs text-gray-500 mt-2">
-
-                        💡 Un élève peut avoir un abonnement mensuel dans une matière
-                        et VIP dans une autre.
-
-                    </p>
 
                 </div>
 
@@ -280,7 +260,7 @@
 ] as $month)
 
                             <option value="{{ $month }}"
-                                {{ old('period') == $month ? 'selected' : '' }}>
+                                {{ old('period', $payment->period) == $month ? 'selected' : '' }}>
 
                                 {{ $month }}
 
@@ -309,7 +289,7 @@
                     <input type="date"
                            id="period_vip"
                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]"
-                           value="{{ old('period') && preg_match('/^\d{4}-\d{2}-\d{2}$/', old('period')) ? old('period') : now()->format('Y-m-d') }}">
+                           value="{{ old('period', $payment->period) && preg_match('/^\d{4}-\d{2}-\d{2}$/', old('period', $payment->period)) ? old('period', $payment->period) : now()->format('Y-m-d') }}">
 
                     <p class="text-xs text-gray-500 mt-2">
 
@@ -324,7 +304,7 @@
                 <input type="hidden"
                        name="period"
                        id="period"
-                       value="{{ old('period') }}">
+                       value="{{ old('period', $payment->period) }}">
 
 
                 {{-- ===================================================== --}}
@@ -347,15 +327,9 @@
                         <input type="date"
                                id="payment_date"
                                name="payment_date"
-                               value="{{ old('payment_date', now()->format('Y-m-d')) }}"
+                               value="{{ old('payment_date', $payment->payment_date?->format('Y-m-d')) }}"
                                max="{{ now()->format('Y-m-d') }}"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
-
-                        <p class="text-xs text-gray-500 mt-2">
-
-                            💡 Vous pouvez enregistrer la vraie date si le paiement a été effectué plus tôt.
-
-                        </p>
 
                     </div>
 
@@ -374,7 +348,7 @@
                         <input type="time"
                                id="payment_time"
                                name="payment_time"
-                               value="{{ old('payment_time', now()->format('H:i')) }}"
+                               value="{{ old('payment_time', $payment->payment_time ? substr($payment->payment_time, 0, 5) : now()->format('H:i')) }}"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
 
                     </div>
@@ -405,7 +379,7 @@
                             <input type="number"
                                    id="amount_due"
                                    name="amount_due"
-                                   value="{{ old('amount_due') }}"
+                                   value="{{ old('amount_due', $payment->amount_due) }}"
                                    min="0"
                                    step="0.01"
                                    required
@@ -437,7 +411,7 @@
                             <input type="number"
                                    id="amount_paid"
                                    name="amount_paid"
-                                   value="{{ old('amount_paid') }}"
+                                   value="{{ old('amount_paid', $payment->amount_paid) }}"
                                    min="0"
                                    step="0.01"
                                    required
@@ -514,22 +488,22 @@
                         </option>
 
                         <option value="Espèces"
-                            {{ old('payment_method') == 'Espèces' ? 'selected' : '' }}>
+                            {{ old('payment_method', $payment->payment_method) == 'Espèces' ? 'selected' : '' }}>
                             💵 Espèces
                         </option>
 
                         <option value="Virement bancaire"
-                            {{ old('payment_method') == 'Virement bancaire' ? 'selected' : '' }}>
+                            {{ old('payment_method', $payment->payment_method) == 'Virement bancaire' ? 'selected' : '' }}>
                             🏦 Virement bancaire
                         </option>
 
                         <option value="Carte bancaire"
-                            {{ old('payment_method') == 'Carte bancaire' ? 'selected' : '' }}>
+                            {{ old('payment_method', $payment->payment_method) == 'Carte bancaire' ? 'selected' : '' }}>
                             💳 Carte bancaire
                         </option>
 
                         <option value="Chèque"
-                            {{ old('payment_method') == 'Chèque' ? 'selected' : '' }}>
+                            {{ old('payment_method', $payment->payment_method) == 'Chèque' ? 'selected' : '' }}>
                             🧾 Chèque
                         </option>
 
@@ -555,7 +529,7 @@
                               name="note"
                               rows="4"
                               placeholder="Ajouter une remarque si nécessaire..."
-                              class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C] resize-none">{{ old('note') }}</textarea>
+                              class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C] resize-none">{{ old('note', $payment->note) }}</textarea>
 
                 </div>
 
@@ -577,7 +551,7 @@
                     <button type="submit"
                             class="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#0B2A55] hover:bg-[#061A33] text-white font-bold shadow-lg border-b-4 border-[#C89B3C]">
 
-                        💾 Enregistrer le paiement
+                        💾 Enregistrer les modifications
 
                     </button>
 

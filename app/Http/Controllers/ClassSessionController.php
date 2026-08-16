@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClassSession;
+use App\Models\Enrollment;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -18,7 +19,7 @@ class ClassSessionController extends Controller
         $sessions = ClassSession::with([
             'student',
             'subject',
-            'teacher'
+            'teacher',
         ])
             ->latest()
             ->paginate(10);
@@ -76,6 +77,22 @@ class ClassSessionController extends Controller
             'note' => 'nullable|string',
         ]);
 
+        $isEnrolled = Enrollment::query()
+            ->where('student_id', $validated['student_id'])
+            ->where('subject_id', $validated['subject_id'])
+            ->where('teacher_id', $validated['teacher_id'])
+            ->where('status', 'active')
+            ->exists();
+
+        if (! $isEnrolled) {
+
+            return back()
+                ->withErrors([
+                    'student_id' => "L'élève sélectionné n'est pas inscrit à cette matière avec cet enseignant.",
+                ])
+                ->withInput();
+        }
+
         ClassSession::create($validated);
 
         return redirect()
@@ -87,21 +104,21 @@ class ClassSessionController extends Controller
     }
 
     /**
- * Afficher une séance
- */
-public function show(ClassSession $classSession)
-{
-    $classSession->load([
-        'student',
-        'subject',
-        'teacher'
-    ]);
+     * Afficher une séance
+     */
+    public function show(ClassSession $classSession)
+    {
+        $classSession->load([
+            'student',
+            'subject',
+            'teacher',
+        ]);
 
-    return view(
-        'class-sessions.show',
-        compact('classSession')
-    );
-}
+        return view(
+            'class-sessions.show',
+            compact('classSession')
+        );
+    }
 
     /**
      * Formulaire de modification

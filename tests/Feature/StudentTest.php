@@ -124,3 +124,148 @@ test('student creation is rejected when the subject does not match the level', f
 
     expect(Student::count())->toBe(0);
 });
+
+test('la recherche par nom et prénom retourne l\'élève', function () {
+    $user = User::factory()->create();
+
+    Student::factory()->create([
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'phone' => '0550 12 34 56',
+    ]);
+
+    Student::factory()->create([
+        'first_name' => 'Sara',
+        'last_name' => 'Bouzid',
+    ]);
+
+    $this->actingAs($user)->get(route('students.index', [
+        'search' => 'Benali Ahmed',
+    ]))
+        ->assertOk()
+        ->assertSee('Benali')
+        ->assertDontSee('Bouzid');
+});
+
+test('la recherche par téléphone retourne l\'élève', function () {
+    $user = User::factory()->create();
+
+    Student::factory()->create([
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'phone' => '0550 12 34 56',
+    ]);
+
+    Student::factory()->create([
+        'first_name' => 'Sara',
+        'last_name' => 'Bouzid',
+        'phone' => '0661 98 76 54',
+    ]);
+
+    $this->actingAs($user)->get(route('students.index', [
+        'search' => '0550',
+    ]))
+        ->assertOk()
+        ->assertSee('Benali')
+        ->assertDontSee('Bouzid');
+});
+
+test('le changement de niveau est bloqué quand une inscription devient incompatible', function () {
+    $user = User::factory()->create();
+
+    $level = Level::create([
+        'name' => 'Primaire',
+        'code' => 'PRI',
+        'active' => true,
+    ]);
+
+    $subject = Subject::factory()->create([
+        'level' => '1AP',
+        'primaire' => true,
+        'active' => true,
+    ]);
+
+    $teacher = Teacher::factory()->create(['active' => true]);
+    $teacher->levels()->attach($level);
+    $subject->teachers()->attach($teacher);
+
+    $student = Student::factory()->create([
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'level' => '1AP',
+    ]);
+
+    $student->enrollments()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'status' => 'active',
+        'payment_type' => 'monthly',
+    ]);
+
+    $this->actingAs($user)->put(route('students.update', $student), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'date_of_birth' => '2012-05-10',
+        'phone' => '0550 00 00 00',
+        'address' => 'Alger',
+        'level' => '2AM',
+        'parent_name' => 'Mohamed Benali',
+        'parent_phone' => '0550 11 11 11',
+    ])->assertSessionHasErrors('level');
+
+    expect($student->refresh()->level)->toBe('1AP');
+});
+
+test('le changement de niveau est autorisé quand les inscriptions restent compatibles', function () {
+    $user = User::factory()->create();
+
+    $primaire = Level::create([
+        'name' => 'Primaire',
+        'code' => 'PRI',
+        'active' => true,
+    ]);
+
+    $secondaire = Level::create([
+        'name' => 'Secondaire',
+        'code' => 'SEC',
+        'active' => true,
+    ]);
+
+    $subject = Subject::factory()->create([
+        'level' => '1AP',
+        'primaire' => true,
+        'lycee' => true,
+        'active' => true,
+    ]);
+
+    $teacher = Teacher::factory()->create(['active' => true]);
+    $teacher->levels()->attach([$primaire, $secondaire]);
+    $subject->teachers()->attach($teacher);
+
+    $student = Student::factory()->create([
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'level' => '1AP',
+    ]);
+
+    $student->enrollments()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'status' => 'active',
+        'payment_type' => 'monthly',
+    ]);
+
+    $this->actingAs($user)->put(route('students.update', $student), [
+        'first_name' => 'Ahmed',
+        'last_name' => 'Benali',
+        'date_of_birth' => '2012-05-10',
+        'phone' => '0550 00 00 00',
+        'address' => 'Alger',
+        'level' => '1AS',
+        'parent_name' => 'Mohamed Benali',
+        'parent_phone' => '0550 11 11 11',
+    ])->assertRedirect(route('students.index'))
+        ->assertSessionHas('success');
+
+    expect($student->refresh()->level)->toBe('1AS');
+});

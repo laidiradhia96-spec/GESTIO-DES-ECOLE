@@ -34,6 +34,99 @@ class PaymentSignalementService
     }
 
     /**
+     * Réconcilier les signalements après la suppression d'une présence.
+     *
+     * Un signalement ouvert n'est supprimé que si AUCUNE autre présence
+     * (présent / retard / justifié) ne justifie encore la période ET si
+     * aucun paiement ne couvre la période. L'historique résolu est conservé.
+     */
+    public function reconcileAfterAttendanceRemoval(int $studentId, int $subjectId, string $date): void
+    {
+        if (! $studentId || ! $subjectId || ! $date) {
+            return;
+        }
+
+        $date = Carbon::parse($date);
+        $type = $this->resolveSubscriptionType($studentId, $subjectId);
+
+        if ($type === 'monthly') {
+            $this->removeMonthlyIfUnjustified($studentId, $subjectId, $date);
+        } elseif ($type === 'vip') {
+            $this->removeVipIfUnjustified($studentId, $subjectId, $date);
+        }
+    }
+
+    /**
+     * Supprimer les signalements mensuels ouverts si la période
+     * n'est plus justifiée par aucune présence ni aucun paiement.
+     */
+    private function removeMonthlyIfUnjustified(int $studentId, int $subjectId, Carbon $date): void
+    {
+        $hasOtherAttendance = Attendance::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->whereIn('status', ['present', 'late', 'justified'])
+            ->whereDate('date', '>=', $date->copy()->startOfMonth()->toDateString())
+            ->whereDate('date', '<=', $date->copy()->endOfMonth()->toDateString())
+            ->exists();
+
+        if ($hasOtherAttendance) {
+            return;
+        }
+
+        $hasCoveringPayment = Payment::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->where('payment_type', 'monthly')
+            ->get()
+            ->contains(fn (Payment $payment) => $this->paymentCoversMonth($payment, $date));
+
+        if ($hasCoveringPayment) {
+            return;
+        }
+
+        PaymentSignalement::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->whereIn('period', [
+                $date->format('Y-m'),
+                $this->frenchMonth((int) $date->format('m')),
+            ])
+            ->whereIn('status', self::OPEN_STATUSES)
+            ->delete();
+    }
+
+    /**
+     * Supprimer les signalements VIP ouverts si la journée
+     * n'est plus justifiée par aucune présence ni aucun paiement.
+     */
+    private function removeVipIfUnjustified(int $studentId, int $subjectId, Carbon $date): void
+    {
+        $hasOtherAttendance = Attendance::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->whereIn('status', ['present', 'late', 'justified'])
+            ->whereDate('date', $date->toDateString())
+            ->exists();
+
+        if ($hasOtherAttendance) {
+            return;
+        }
+
+        $hasCoveringPayment = Payment::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->where('payment_type', 'vip')
+            ->get()
+            ->contains(fn (Payment $payment) => $this->paymentCoversDay($payment, $date));
+
+        if ($hasCoveringPayment) {
+            return;
+        }
+
+        PaymentSignalement::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->where('period', $date->format('Y-m-d'))
+            ->whereIn('status', self::OPEN_STATUSES)
+            ->delete();
+    }
+
+    /**
      * Mettre à jour les signalements après l'enregistrement d'un paiement.
      */
     public function syncFromPayment(Payment $payment): void

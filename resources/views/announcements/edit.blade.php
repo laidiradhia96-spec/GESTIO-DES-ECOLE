@@ -170,6 +170,59 @@
                         </div>
 
 
+                        {{-- TYPE --}}
+                        <div>
+
+                            <label for="type"
+                                   class="block text-sm font-bold text-gray-700 mb-2">
+
+                                Type
+
+                            </label>
+
+                            <select id="type"
+                                    name="type"
+                                    required
+                                    class="w-full
+                                           rounded-xl
+                                           border border-gray-200
+                                           bg-gray-50
+                                           px-4 py-3
+                                           text-gray-700
+                                           outline-none
+                                           focus:bg-white
+                                           focus:border-blue-400
+                                           focus:ring-2
+                                           focus:ring-blue-100">
+
+                                <option value="info"
+                                    {{ old('type', $announcement->type) === 'info' ? 'selected' : '' }}>
+                                    🔵 Information
+                                </option>
+
+                                <option value="important"
+                                    {{ old('type', $announcement->type) === 'important' ? 'selected' : '' }}>
+                                    🔴 Important
+                                </option>
+
+                                <option value="warning"
+                                    {{ old('type', $announcement->type) === 'warning' ? 'selected' : '' }}>
+                                    🟠 Attention
+                                </option>
+
+                            </select>
+
+                            @error('type')
+
+                                <p class="text-sm text-red-600 mt-1">
+                                    {{ $message }}
+                                </p>
+
+                            @enderror
+
+                        </div>
+
+
                         {{-- ACTIVE --}}
                         <div class="rounded-xl
                                     border border-gray-200
@@ -179,9 +232,9 @@
                             <label class="flex items-center gap-3 cursor-pointer">
 
                                 <input type="checkbox"
-                                       name="active"
+                                       name="is_active"
                                        value="1"
-                                       {{ old('active', $announcement->active ?? true) ? 'checked' : '' }}
+                                       {{ old('is_active', $announcement->is_active) ? 'checked' : '' }}
                                        class="w-5 h-5
                                               rounded
                                               border-gray-300
