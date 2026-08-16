@@ -632,12 +632,23 @@
 
                         <form method="POST"
                               action="{{ route(
-    'payment-signalements.resolved',
-    $paymentSignalement
-) }}">
+                                  'payment-signalements.sent'
+                              ) }}">
 
                             @csrf
                             @method('PATCH')
+
+                            <input type="hidden"
+                                   name="student_id"
+                                   value="{{ $paymentSignalement->student_id }}">
+
+                            <input type="hidden"
+                                   name="subject_id"
+                                   value="{{ $paymentSignalement->subject_id }}">
+
+                            <input type="hidden"
+                                   name="period"
+                                   value="{{ $paymentSignalement->period }}">
 
                             <button type="submit"
                                     class="w-full sm:w-auto
@@ -663,13 +674,23 @@
 
                         <form method="POST"
                               action="{{ route(
-    'payment-signalements.resolved',
-    $paymentSignalement
-) }}"
-                              >
+                                  'payment-signalements.resolved'
+                              ) }}">
 
                             @csrf
                             @method('PATCH')
+
+                            <input type="hidden"
+                                   name="student_id"
+                                   value="{{ $paymentSignalement->student_id }}">
+
+                            <input type="hidden"
+                                   name="subject_id"
+                                   value="{{ $paymentSignalement->subject_id }}">
+
+                            <input type="hidden"
+                                   name="period"
+                                   value="{{ $paymentSignalement->period }}">
 
                             <button type="submit"
                                     onclick="return confirm(

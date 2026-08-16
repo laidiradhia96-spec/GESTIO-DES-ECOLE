@@ -233,3 +233,33 @@ test('vip: a partially paid day keeps a signalement with the remaining amount', 
         ->and($signalement->status)->toBe('pending')
         ->and((float) $signalement->amount_remaining)->toBe(300.0);
 });
+
+test('monthly: an october payment never settles an august debt, even with an august payment_date', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+    monthlyEnrollment($student, $subject, $teacher);
+
+    $service = app(PaymentSignalementService::class);
+
+    syncAttendance($service, $student, $subject, '2026-08-05');
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(1);
+
+    $payment = Payment::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'payment_type' => 'monthly',
+        'period' => '2026-10',
+        'amount_due' => 1500,
+        'amount_paid' => 1500,
+        'remaining_amount' => 0,
+        'payment_date' => '2026-08-14',
+    ]);
+
+    $service->syncFromPayment($payment);
+
+    expect(PaymentSignalement::where('period', '2026-08')->where('status', 'pending')->count())->toBe(1)
+        ->and(PaymentSignalement::where('period', '2026-08')->where('status', 'resolved')->count())->toBe(0);
+});

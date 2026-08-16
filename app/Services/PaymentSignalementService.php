@@ -207,7 +207,10 @@ class PaymentSignalementService
 
     /**
      * Un paiement mensuel couvre-t-il ce mois ?
-     * Formats acceptés : "2026-08", "Août" (legacy), ou payment_date dans le mois.
+     *
+     * La couverture repose UNIQUEMENT sur la période du paiement ("Y-m"
+     * ou nom de mois français legacy avec la même année). Le fallback
+     * payment_date n'est utilisé que si le paiement n'a pas de période.
      */
     private function paymentCoversMonth(Payment $payment, Carbon $date): bool
     {
@@ -219,7 +222,12 @@ class PaymentSignalementService
         }
 
         if ($period === $this->frenchMonth((int) $date->format('m'))) {
-            return true;
+            return $payment->payment_date
+                && Carbon::parse($payment->payment_date)->format('Y') === $date->format('Y');
+        }
+
+        if ($period !== '') {
+            return false;
         }
 
         return $payment->payment_date
@@ -228,7 +236,9 @@ class PaymentSignalementService
 
     /**
      * Un paiement VIP couvre-t-il cette journée ?
-     * Formats acceptés : "2026-08-20", ou payment_date le même jour.
+     *
+     * Couverture UNIQUEMENT par la période "Y-m-d" du paiement ;
+     * payment_date n'est utilisé que si le paiement n'a pas de période.
      */
     private function paymentCoversDay(Payment $payment, Carbon $date): bool
     {
@@ -236,6 +246,10 @@ class PaymentSignalementService
 
         if ($period === $date->format('Y-m-d')) {
             return true;
+        }
+
+        if ($period !== '') {
+            return false;
         }
 
         return $payment->payment_date
@@ -259,6 +273,7 @@ class PaymentSignalementService
 
     /**
      * Mois couvert par un paiement mensuel.
+     * Une période nommée legacy ("Octobre") cible le vrai mois, pas payment_date.
      */
     private function resolvePaymentMonth(Payment $payment): Carbon
     {
@@ -270,6 +285,16 @@ class PaymentSignalementService
 
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $period)) {
             return Carbon::parse($period)->startOfMonth();
+        }
+
+        $monthNumber = $this->frenchMonthNumber($period);
+
+        if ($monthNumber !== null) {
+            $year = $payment->payment_date
+                ? (int) Carbon::parse($payment->payment_date)->format('Y')
+                : (int) now()->format('Y');
+
+            return Carbon::create($year, $monthNumber, 1);
         }
 
         return Carbon::parse($payment->payment_date)->startOfMonth();
@@ -306,5 +331,31 @@ class PaymentSignalementService
             12 => 'Décembre',
             default => '',
         };
+    }
+
+    /**
+     * Numéro de mois à partir d'un nom français (legacy), sinon null.
+     */
+    private function frenchMonthNumber(string $name): ?int
+    {
+        $months = [
+            'janvier' => 1,
+            'février' => 2,
+            'fevrier' => 2,
+            'mars' => 3,
+            'avril' => 4,
+            'mai' => 5,
+            'juin' => 6,
+            'juillet' => 7,
+            'août' => 8,
+            'aout' => 8,
+            'septembre' => 9,
+            'octobre' => 10,
+            'novembre' => 11,
+            'décembre' => 12,
+            'decembre' => 12,
+        ];
+
+        return $months[mb_strtolower(trim($name))] ?? null;
     }
 }

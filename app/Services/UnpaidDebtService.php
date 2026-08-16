@@ -167,6 +167,11 @@ class UnpaidDebtService
                 continue;
             }
 
+            // Dette déjà résolue (signalement stocké résolu) → plus aucune dette active.
+            if ($this->hasResolvedSignalement($studentId, $subjectId, $month, $date)) {
+                continue;
+            }
+
             $stored = $this->openStoredSignalement($studentId, $subjectId, $month, $date);
 
             $debts->push((object) [
@@ -227,6 +232,11 @@ class UnpaidDebtService
                 continue;
             }
 
+            // Journée déjà résolue (signalement stocké résolu) → plus aucune dette active.
+            if ($this->hasResolvedSignalement($studentId, $subjectId, $day, $date)) {
+                continue;
+            }
+
             $stored = PaymentSignalement::where('student_id', $studentId)
                 ->where('subject_id', $subjectId)
                 ->where('period', $day)
@@ -280,6 +290,22 @@ class UnpaidDebtService
             ->whereIn('status', self::OPEN_STATUSES)
             ->latest('id')
             ->first();
+    }
+
+    /**
+     * Signalement stocké résolu pour la même dette (période "Y-m"/jour
+     * ou nom de mois legacy). Une dette résolue ne réapparaît pas.
+     */
+    private function hasResolvedSignalement(int $studentId, int $subjectId, string $period, Carbon $date): bool
+    {
+        return PaymentSignalement::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->whereIn('period', [
+                $period,
+                $this->frenchMonth((int) $date->format('m')),
+            ])
+            ->where('status', 'resolved')
+            ->exists();
     }
 
     /**
@@ -349,8 +375,10 @@ class UnpaidDebtService
     /**
      * Un paiement mensuel couvre-t-il ce mois ?
      *
-     * Formats : "Y-m", nom français legacy, ou payment_date dans le mois.
-     * Un paiement d'une année ne couvre JAMAIS le même mois d'une autre année.
+     * La couverture repose UNIQUEMENT sur la période du paiement ("Y-m"
+     * ou nom de mois français legacy avec la même année). Le fallback
+     * payment_date n'est utilisé que si le paiement n'a pas de période.
+     * Un paiement d'octobre ne couvre JAMAIS un mois d'août.
      */
     private function paymentCoversMonth(Payment $payment, Carbon $date): bool
     {
@@ -366,13 +394,19 @@ class UnpaidDebtService
                 && Carbon::parse($payment->payment_date)->format('Y') === $date->format('Y');
         }
 
+        if ($period !== '') {
+            return false;
+        }
+
         return $payment->payment_date
             && Carbon::parse($payment->payment_date)->format('Y-m') === $monthKey;
     }
 
     /**
      * Un paiement VIP couvre-t-il cette journée ?
-     * Formats : "Y-m-d", ou payment_date le même jour.
+     *
+     * Couverture UNIQUEMENT par la période "Y-m-d" du paiement ;
+     * payment_date n'est utilisé que si le paiement n'a pas de période.
      */
     private function paymentCoversDay(Payment $payment, Carbon $date): bool
     {
@@ -380,6 +414,10 @@ class UnpaidDebtService
 
         if ($period === $date->format('Y-m-d')) {
             return true;
+        }
+
+        if ($period !== '') {
+            return false;
         }
 
         return $payment->payment_date

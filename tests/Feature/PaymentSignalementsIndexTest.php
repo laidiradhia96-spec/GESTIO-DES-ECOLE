@@ -408,3 +408,162 @@ test('une présence est une dette même si l\'enrollment concerne une autre mati
         ->assertSee('Mensuel')
         ->assertSee('Août 2026');
 });
+
+test('un paiement d\'octobre ne paie jamais la dette d\'août', function () {
+    $user = User::factory()->create();
+    $student = debtStudent('Laidi', 'LAIDI');
+    $subject = Subject::factory()->create();
+    debtEnrollment($student, $subject, 'monthly');
+    debtAttendance($student, $subject, '2026-08-08', 'present');
+    debtPayment($student, $subject, [
+        'period' => '2026-10',
+        'amount_due' => 1500,
+        'amount_paid' => 1500,
+        'remaining_amount' => 0,
+        'payment_date' => '2026-08-14',
+    ]);
+
+    $this->actingAs($user)->get(route('payment-signalements.index'))
+        ->assertOk()
+        ->assertSee('Août 2026')
+        ->assertSee('En attente');
+});
+
+test('un paiement complet d\'août paie la dette d\'août', function () {
+    $user = User::factory()->create();
+    $student = debtStudent('Laidi', 'LAIDI');
+    $subject = Subject::factory()->create();
+    debtEnrollment($student, $subject, 'monthly');
+    debtAttendance($student, $subject, '2026-08-08', 'present');
+    debtPayment($student, $subject, [
+        'period' => '2026-08',
+        'amount_due' => 1500,
+        'amount_paid' => 1500,
+        'remaining_amount' => 0,
+        'payment_date' => '2026-08-20',
+    ]);
+
+    $this->actingAs($user)->get(route('payment-signalements.index'))
+        ->assertOk()
+        ->assertSee('Aucun impayé');
+});
+
+test('un paiement partiel d\'août laisse le montant restant correct', function () {
+    $user = User::factory()->create();
+    $student = debtStudent('Laidi', 'LAIDI');
+    $subject = Subject::factory()->create();
+    debtEnrollment($student, $subject, 'monthly');
+    debtAttendance($student, $subject, '2026-08-08', 'present');
+    debtPayment($student, $subject, [
+        'period' => '2026-08',
+        'amount_due' => 1500,
+        'amount_paid' => 1000,
+        'remaining_amount' => 500,
+        'payment_date' => '2026-08-14',
+    ]);
+
+    $this->actingAs($user)->get(route('payment-signalements.index'))
+        ->assertOk()
+        ->assertSee('500,00');
+});
+
+test('un paiement sur une autre matière ne paie pas la dette', function () {
+    $user = User::factory()->create();
+    $student = debtStudent('Laidi', 'LAIDI');
+    $matimatique = Subject::factory()->create(['name' => 'MATIMATIQUE']);
+    $englais = Subject::factory()->create(['name' => 'englais']);
+    debtEnrollment($student, $englais, 'monthly');
+    debtAttendance($student, $matimatique, '2026-08-15', 'present');
+    debtPayment($student, $englais, [
+        'period' => '2026-08',
+        'amount_due' => 1500,
+        'amount_paid' => 1500,
+        'remaining_amount' => 0,
+        'payment_date' => '2026-08-20',
+    ]);
+
+    $this->actingAs($user)->get(route('payment-signalements.index'))
+        ->assertOk()
+        ->assertSee('MATIMATIQUE')
+        ->assertSee('Mensuel')
+        ->assertSee('Août 2026');
+});
+
+test('vip : le paiement d\'une autre journée ne paie pas la journée même si payment_date correspond', function () {
+    $user = User::factory()->create();
+    $student = debtStudent('Laidi', 'LAIDI');
+    $subject = Subject::factory()->create();
+    debtEnrollment($student, $subject, 'vip');
+    debtAttendance($student, $subject, '2026-08-08', 'present');
+    debtPayment($student, $subject, [
+        'payment_type' => 'vip',
+        'period' => '2026-08-10',
+        'amount_due' => 500,
+        'amount_paid' => 500,
+        'remaining_amount' => 0,
+        'payment_date' => '2026-08-08',
+    ]);
+
+    $content = $this->actingAs($user)->get(route('payment-signalements.index'))
+        ->assertOk()
+        ->getContent();
+
+    expect($content)->toContain('08 Août 2026');
+});
+
+test('les statistiques sont calculées au scope année/période uniquement', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+
+    $a = debtStudent('Laidi', 'Radhia');
+    debtEnrollment($a, $subject, 'monthly');
+    debtAttendance($a, $subject, '2026-08-08', 'present');
+
+    $b = debtStudent('Sami', 'Bouzid');
+    debtEnrollment($b, $subject, 'monthly');
+    debtAttendance($b, $subject, '2026-08-10', 'present');
+    debtAttendance($b, $subject, '2026-09-10', 'present');
+
+    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026, 'period' => '2026-08']))
+        ->assertOk()
+        ->assertViewHas('pendingCount', 2)
+        ->assertViewHas('sentCount', 0)
+        ->assertViewHas('resolvedCount', 0);
+});
+
+test('le total restant correspond aux dettes actives de la période', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+
+    $a = debtStudent('Laidi', 'Radhia');
+    debtEnrollment($a, $subject, 'monthly');
+    debtAttendance($a, $subject, '2026-08-08', 'present');
+    debtPayment($a, $subject, [
+        'period' => '2026-08',
+        'amount_due' => 1500,
+        'amount_paid' => 1000,
+        'remaining_amount' => 500,
+        'payment_date' => '2026-08-14',
+    ]);
+
+    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026, 'period' => '2026-08']))
+        ->assertOk()
+        ->assertViewHas('totalRemaining', 500.0);
+});
+
+test('les statistiques incluent l\'historique résolu de l\'année/période', function () {
+    $user = User::factory()->create();
+    $subject = Subject::factory()->create();
+
+    $a = debtStudent('Laidi', 'Radhia');
+    debtEnrollment($a, $subject, 'monthly');
+    debtAttendance($a, $subject, '2026-08-08', 'present');
+
+    $b = debtStudent('Sami', 'Bouzid');
+    debtStoredSignalement($b, $subject, ['status' => 'resolved']);
+
+    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertViewHas('pendingCount', 1)
+        ->assertViewHas('resolvedCount', 1);
+});

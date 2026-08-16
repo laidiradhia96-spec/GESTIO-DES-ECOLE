@@ -207,12 +207,12 @@ Route::middleware('auth')->group(function () {
     )->name('payment-signalements.show');
 
     Route::patch(
-        '/payment-signalements/{paymentSignalement}/sent',
+        '/payment-signalements/sent',
         [PaymentSignalementController::class, 'markAsSent']
     )->name('payment-signalements.sent');
 
     Route::patch(
-        '/payment-signalements/{paymentSignalement}/resolved',
+        '/payment-signalements/resolved',
         [PaymentSignalementController::class, 'markAsResolved']
     )->name('payment-signalements.resolved');
 

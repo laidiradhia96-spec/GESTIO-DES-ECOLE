@@ -47,9 +47,12 @@ class PaymentSignalementController extends Controller
         // LIGNES D'IMPAYÉS (DYNAMIQUES)
         // =========================
 
+        $activeDebts = $service->activeDebts($year, $period);
+        $resolvedDebts = $service->resolvedHistory($year, $period);
+
         $rows = $status === 'resolved'
-            ? $service->resolvedHistory($year, $period)
-            : $service->activeDebts($year, $period);
+            ? $resolvedDebts
+            : $activeDebts;
 
         // =========================
         // RECHERCHE ÉLÈVE / PARENT
@@ -93,25 +96,17 @@ class PaymentSignalementController extends Controller
         }
 
         // =========================
-        // STATISTIQUES (enregistrements stockés)
+        // STATISTIQUES (scope année/période uniquement,
+        // indépendantes des filtres recherche/matière/statut des lignes)
         // =========================
 
-        $pendingCount = PaymentSignalement::where(
-            'status',
-            'pending'
-        )->count();
+        $pendingCount = $activeDebts->where('status', 'pending')->count();
 
-        $sentCount = PaymentSignalement::where(
-            'status',
-            'sent'
-        )->count();
+        $sentCount = $activeDebts->where('status', 'sent')->count();
 
-        $resolvedCount = PaymentSignalement::where(
-            'status',
-            'resolved'
-        )->count();
+        $resolvedCount = $resolvedDebts->count();
 
-        $totalRemaining = PaymentSignalement::whereIn(
+        $totalRemaining = $activeDebts->whereIn(
             'status',
             ['pending', 'sent']
         )->sum('amount_remaining');
@@ -218,16 +213,20 @@ class PaymentSignalementController extends Controller
     }
 
     /**
-     * Marquer un signalement comme envoyé
+     * Marquer un signalement comme envoyé.
+     *
+     * Fonctionne aussi pour une dette calculée dynamiquement sans
+     * signalement stocké : l'obligation (student_id + subject_id + period)
+     * est matérialisée avant la transition, sans créer de doublon.
      */
-    public function markAsSent(
-        PaymentSignalement $paymentSignalement
-    ) {
+    public function markAsSent(Request $request)
+    {
+        $data = $this->validateDebtIdentity($request);
 
-        $paymentSignalement->update([
+        $signalement = $this->resolveSignalementForDebt($data);
 
+        $signalement->update([
             'status' => 'sent',
-
             'sent_at' => now(),
         ]);
 
@@ -240,16 +239,19 @@ class PaymentSignalementController extends Controller
     }
 
     /**
-     * Marquer un signalement comme résolu
+     * Marquer un signalement comme résolu.
+     *
+     * Même comportement que markAsSent : matérialise la dette calculée
+     * si nécessaire, puis la passe en résolu.
      */
-    public function markAsResolved(
-        PaymentSignalement $paymentSignalement
-    ) {
+    public function markAsResolved(Request $request)
+    {
+        $data = $this->validateDebtIdentity($request);
 
-        $paymentSignalement->update([
+        $signalement = $this->resolveSignalementForDebt($data);
 
+        $signalement->update([
             'status' => 'resolved',
-
             'amount_remaining' => 0,
         ]);
 
@@ -259,6 +261,55 @@ class PaymentSignalementController extends Controller
                 'success',
                 'Le signalement a été marqué comme résolu.'
             );
+    }
+
+    /**
+     * Validation de l'identité d'une dette (élève + matière + période).
+     */
+    private function validateDebtIdentity(Request $request): array
+    {
+        return $request->validate([
+            'student_id' => ['required', 'integer', 'exists:students,id'],
+            'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'period' => ['required', 'string', 'max:20'],
+            'amount_remaining' => ['nullable', 'numeric', 'min:0'],
+        ]);
+    }
+
+    /**
+     * Signalement stocké correspondant à une dette, sinon création.
+     *
+     * Recherche par (student_id + subject_id + period), avec l'alias
+     * legacy nom-de-mois français, pour ne jamais créer de doublon.
+     */
+    private function resolveSignalementForDebt(array $data): PaymentSignalement
+    {
+        $periods = [$data['period']];
+
+        if (preg_match('/^\d{4}-\d{2}$/', $data['period'])) {
+            $periods[] = $this->monthName((int) substr($data['period'], 5, 2));
+        }
+
+        $signalement = PaymentSignalement::where('student_id', $data['student_id'])
+            ->where('subject_id', $data['subject_id'])
+            ->whereIn('period', $periods)
+            ->whereIn('status', ['pending', 'sent', 'resolved'])
+            ->latest('id')
+            ->first();
+
+        if ($signalement) {
+            return $signalement;
+        }
+
+        return PaymentSignalement::create([
+            'student_id' => $data['student_id'],
+            'subject_id' => $data['subject_id'],
+            'period' => $data['period'],
+            'amount_remaining' => $data['amount_remaining'] ?? 0,
+            'status' => 'pending',
+            'signalement_date' => now()->toDateString(),
+            'note' => 'Dette calculée traitée manuellement.',
+        ]);
     }
 
     /**

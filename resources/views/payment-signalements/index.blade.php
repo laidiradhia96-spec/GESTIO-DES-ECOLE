@@ -856,12 +856,12 @@
                                         {{-- Actions --}}
                                         <td class="px-6 py-5">
 
-                                            @if($signalement->signalement)
-
-                                                <div class="flex items-center justify-end gap-2">
+                                            <div class="flex items-center justify-end gap-2">
 
 
-                                                    {{-- Voir --}}
+                                                {{-- Voir --}}
+                                                @if($signalement->signalement)
+
                                                     <a href="{{ route(
                                                         'payment-signalements.show',
                                                         $signalement->signalement
@@ -879,75 +879,97 @@
 
                                                     </a>
 
-
-                                                    {{-- Envoyer --}}
-                                                    @if($signalement->status === 'pending')
-
-                                                        <form method="POST"
-                                                              action="{{ route(
-                                                                  'payment-signalements.sent',
-                                                                  $signalement->signalement
-                                                              ) }}">
-
-                                                            @csrf
-                                                            @method('PATCH')
-
-                                                            <button type="submit"
-                                                                    class="w-10 h-10
-                                                                           rounded-xl
-                                                                           bg-yellow-50
-                                                                           text-yellow-700
-                                                                           flex items-center justify-center
-                                                                           hover:bg-yellow-100
-                                                                           transition"
-                                                                    title="Marquer comme envoyé">
-
-                                                                📩
-
-                                                            </button>
-
-                                                        </form>
-
-                                                    @endif
+                                                @endif
 
 
-                                                    {{-- Résoudre --}}
-                                                    @if($signalement->status !== 'resolved')
+                                                {{-- Envoyer --}}
+                                                @if($signalement->status === 'pending')
 
-                                                        <form method="POST"
-                                                              action="{{ route(
-                                                                  'payment-signalements.resolved',
-                                                                  $signalement->signalement
-                                                              ) }}">
+                                                    <form method="POST"
+                                                          action="{{ route(
+                                                              'payment-signalements.sent'
+                                                          ) }}">
 
-                                                            @csrf
-                                                            @method('PATCH')
+                                                        @csrf
+                                                        @method('PATCH')
 
-                                                            <button type="submit"
-                                                                    class="w-10 h-10
-                                                                           rounded-xl
-                                                                           bg-green-50
-                                                                           text-green-700
-                                                                           flex items-center justify-center
-                                                                           hover:bg-green-100
-                                                                           transition"
-                                                                    title="Marquer comme résolu">
+                                                        <input type="hidden"
+                                                               name="student_id"
+                                                               value="{{ $signalement->student?->id }}">
 
-                                                                ✅
+                                                        <input type="hidden"
+                                                               name="subject_id"
+                                                               value="{{ $signalement->subject?->id }}">
 
-                                                            </button>
+                                                        <input type="hidden"
+                                                               name="period"
+                                                               value="{{ $signalement->period }}">
 
-                                                        </form>
+                                                        <input type="hidden"
+                                                               name="amount_remaining"
+                                                               value="{{ $signalement->amount_remaining }}">
 
-                                                    @endif
+                                                        <button type="submit"
+                                                                class="w-10 h-10
+                                                                       rounded-xl
+                                                                       bg-yellow-50
+                                                                       text-yellow-700
+                                                                       flex items-center justify-center
+                                                                       hover:bg-yellow-100
+                                                                       transition"
+                                                                title="Marquer comme envoyé">
 
-                                                </div>
+                                                            📩
 
-                                            @else
+                                                        </button>
 
-                                                <span class="text-sm text-gray-400">—</span>
+                                                    </form>
 
-                                            @endif
+                                                @endif
+
+
+                                                {{-- Résoudre --}}
+                                                @if($signalement->status !== 'resolved')
+
+                                                    <form method="POST"
+                                                          action="{{ route(
+                                                              'payment-signalements.resolved'
+                                                          ) }}">
+
+                                                        @csrf
+                                                        @method('PATCH')
+
+                                                        <input type="hidden"
+                                                               name="student_id"
+                                                               value="{{ $signalement->student?->id }}">
+
+                                                        <input type="hidden"
+                                                               name="subject_id"
+                                                               value="{{ $signalement->subject?->id }}">
+
+                                                        <input type="hidden"
+                                                               name="period"
+                                                               value="{{ $signalement->period }}">
+
+                                                        <button type="submit"
+                                                                class="w-10 h-10
+                                                                       rounded-xl
+                                                                       bg-green-50
+                                                                       text-green-700
+                                                                       flex items-center justify-center
+                                                                       hover:bg-green-100
+                                                                       transition"
+                                                                title="Marquer comme résolu">
+
+                                                            ✅
+
+                                                        </button>
+
+                                                    </form>
+
+                                                @endif
+
+                                            </div>
 
                                         </td>
 
