@@ -273,3 +273,39 @@ test('store rejette un paiement pour un élève dont l\'inscription est inactive
 
     expect(Payment::count())->toBe(0);
 });
+
+test('show affiche la matière et l\'enseignant de l\'inscription de l\'élève', function () {
+    $user = User::factory()->create();
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create(['name' => 'Mathématiques']);
+    $teacher = Teacher::factory()->create([
+        'first_name' => 'Karim',
+        'last_name' => 'Amrani',
+    ]);
+
+    $otherTeacher = Teacher::factory()->create([
+        'first_name' => 'Ali',
+        'last_name' => 'Brahimi',
+    ]);
+
+    paymentEnrollment($student, $subject, $teacher);
+
+    $subject->teachers()->attach($otherTeacher);
+
+    $payment = Payment::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+    ]);
+
+    $this->actingAs($user)->get(route('payments.show', $payment))
+        ->assertOk()
+        ->assertSee('Mathématiques')
+        ->assertSee('Amrani')
+        ->assertDontSee('Brahimi');
+
+    $this->actingAs($user)->get(route('payments.print', $payment))
+        ->assertOk()
+        ->assertSee('Mathématiques')
+        ->assertSee('Amrani')
+        ->assertDontSee('Brahimi');
+});

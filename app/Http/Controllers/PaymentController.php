@@ -362,11 +362,19 @@ class PaymentController extends Controller
             'student',
             'subject',
             'signalements',
+            'student.enrollments' => function ($query) use ($payment) {
+                $query->where('subject_id', $payment->subject_id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->with('teacher');
+            },
         ]);
+
+        $enrollment = $payment->student->enrollments->first();
 
         return view(
             'payments.show',
-            compact('payment')
+            compact('payment', 'enrollment')
         );
     }
 
@@ -459,11 +467,19 @@ class PaymentController extends Controller
         $payment->load([
             'student',
             'subject',
+            'student.enrollments' => function ($query) use ($payment) {
+                $query->where('subject_id', $payment->subject_id)
+                    ->where('status', 'active')
+                    ->latest('id')
+                    ->with('teacher');
+            },
         ]);
+
+        $enrollment = $payment->student->enrollments->first();
 
         return view(
             'payments.print',
-            compact('payment')
+            compact('payment', 'enrollment')
         );
     }
 

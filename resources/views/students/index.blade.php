@@ -405,6 +405,30 @@
                                 <option value="">
                                     Tous les niveaux
                                 </option>
+                                <option value="1AP"
+    {{ request('level') == '1AP' ? 'selected' : '' }}>
+    1AP
+</option>
+
+<option value="2AP"
+    {{ request('level') == '2AP' ? 'selected' : '' }}>
+    2AP
+</option>
+
+<option value="3AP"
+    {{ request('level') == '3AP' ? 'selected' : '' }}>
+    3AP
+</option>
+
+<option value="4AP"
+    {{ request('level') == '4AP' ? 'selected' : '' }}>
+    4AP
+</option>
+
+<option value="5AP"
+    {{ request('level') == '5AP' ? 'selected' : '' }}>
+    5AP
+</option>
 
                                 <option value="1AM"
                                     {{ request('level') == '1AM' ? 'selected' : '' }}>

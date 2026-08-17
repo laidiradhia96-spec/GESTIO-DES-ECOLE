@@ -150,6 +150,35 @@
 
                             </div>
 
+
+                            {{-- Matière --}}
+                            <div class="info-item">
+
+                                <span>
+                                    Matière
+                                </span>
+
+                                <strong>
+                                    {{ $payment->subject->name ?? '-' }}
+                                </strong>
+
+                            </div>
+
+
+                            {{-- Enseignant --}}
+                            <div class="info-item">
+
+                                <span>
+                                    Enseignant
+                                </span>
+
+                                <strong>
+                                    {{ $enrollment?->teacher->last_name }}
+                                    {{ $enrollment?->teacher->first_name }}
+                                </strong>
+
+                            </div>
+
                         </div>
 
 
@@ -367,6 +396,35 @@
 
                                 <strong>
                                     {{ $payment->payment_method }}
+                                </strong>
+
+                            </div>
+
+
+                            {{-- Matière --}}
+                            <div class="info-item">
+
+                                <span>
+                                    Matière
+                                </span>
+
+                                <strong>
+                                    {{ $payment->subject->name ?? '-' }}
+                                </strong>
+
+                            </div>
+
+
+                            {{-- Enseignant --}}
+                            <div class="info-item">
+
+                                <span>
+                                    Enseignant
+                                </span>
+
+                                <strong>
+                                    {{ $enrollment?->teacher->last_name }}
+                                    {{ $enrollment?->teacher->first_name }}
                                 </strong>
 
                             </div>

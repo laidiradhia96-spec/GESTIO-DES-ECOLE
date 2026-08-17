@@ -243,6 +243,27 @@
                 </div>
             </div>
 
+            <div class="info-box">
+                <div class="label">
+                    Matière
+                </div>
+
+                <div class="value">
+                    {{ $payment->subject->name ?? '-' }}
+                </div>
+            </div>
+
+            <div class="info-box">
+                <div class="label">
+                    Enseignant
+                </div>
+
+                <div class="value">
+                    {{ $enrollment?->teacher->last_name }}
+                    {{ $enrollment?->teacher->first_name }}
+                </div>
+            </div>
+
         </div>
 
         <table>
