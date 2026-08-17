@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             LevelSeeder::class,
+            SchoolYearSeeder::class,
         ]);
 
         User::factory()->create([
