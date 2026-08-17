@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PaymentSchedule extends Model
 {
@@ -14,6 +15,7 @@ class PaymentSchedule extends Model
         'remaining_amount',
         'status',
         'due_date',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -29,5 +31,13 @@ class PaymentSchedule extends Model
     public function student()
     {
         return $this->belongsTo(Student::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Enrollment extends Model
 {
@@ -22,15 +23,15 @@ class Enrollment extends Model
         'status',
 
         'payment_type',
-    ];
 
+        'school_year_id',
+    ];
 
     protected $casts = [
 
         'start_date' => 'date',
 
     ];
-
 
     public function student()
     {
@@ -39,7 +40,6 @@ class Enrollment extends Model
         );
     }
 
-
     public function subject()
     {
         return $this->belongsTo(
@@ -47,11 +47,20 @@ class Enrollment extends Model
         );
     }
 
-
     public function teacher()
     {
         return $this->belongsTo(
             Teacher::class
+        );
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(
+            SchoolYear::class
         );
     }
 }

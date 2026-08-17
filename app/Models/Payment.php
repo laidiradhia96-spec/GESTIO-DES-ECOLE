@@ -23,6 +23,7 @@ class Payment extends Model
         'payment_date',
         'payment_time',
         'note',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -54,5 +55,13 @@ class Payment extends Model
     public function signalements()
     {
         return $this->hasMany(PaymentSignalement::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

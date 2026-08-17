@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClassSession extends Model
 {
@@ -19,6 +20,7 @@ class ClassSession extends Model
         'end_date',
         'status',
         'note',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -48,5 +50,13 @@ class ClassSession extends Model
     public function teacher()
     {
         return $this->belongsTo(Teacher::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

@@ -21,6 +21,7 @@ class PaymentSignalement extends Model
         'attendance_date',
         'sent_at',
         'note',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -52,5 +53,13 @@ class PaymentSignalement extends Model
     public function payment(): BelongsTo
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

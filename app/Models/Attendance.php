@@ -17,6 +17,7 @@ class Attendance extends Model
         'date',
         'status',
         'note',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -45,5 +46,13 @@ class Attendance extends Model
     public function teacher(): BelongsTo
     {
         return $this->belongsTo(Teacher::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

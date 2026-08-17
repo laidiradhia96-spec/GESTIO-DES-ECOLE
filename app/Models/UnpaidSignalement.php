@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class UnpaidSignalement extends Model
 {
@@ -16,6 +17,7 @@ class UnpaidSignalement extends Model
         'reminder_count',
         'last_reminder_at',
         'note',
+        'school_year_id',
     ];
 
     protected $casts = [
@@ -38,5 +40,13 @@ class UnpaidSignalement extends Model
     public function payment()
     {
         return $this->belongsTo(Payment::class);
+    }
+
+    /**
+     * Année scolaire
+     */
+    public function schoolYear(): BelongsTo
+    {
+        return $this->belongsTo(SchoolYear::class);
     }
 }

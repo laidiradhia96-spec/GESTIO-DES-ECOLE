@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 
 class SchoolYear extends Model
@@ -55,5 +56,61 @@ class SchoolYear extends Model
         });
 
         return $year->refresh();
+    }
+
+    /**
+     * Présences de l'année
+     */
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
+    /**
+     * Inscriptions de l'année
+     */
+    public function enrollments(): HasMany
+    {
+        return $this->hasMany(Enrollment::class);
+    }
+
+    /**
+     * Paiements de l'année
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Séances de l'année
+     */
+    public function classSessions(): HasMany
+    {
+        return $this->hasMany(ClassSession::class);
+    }
+
+    /**
+     * Signalements de paiement de l'année
+     */
+    public function paymentSignalements(): HasMany
+    {
+        return $this->hasMany(PaymentSignalement::class);
+    }
+
+    /**
+     * Signalements d'impayés de l'année
+     */
+    public function unpaidSignalements(): HasMany
+    {
+        return $this->hasMany(UnpaidSignalement::class);
+    }
+
+    /**
+     * Échéanciers de l'année
+     */
+    public function paymentSchedules(): HasMany
+    {
+        return $this->hasMany(PaymentSchedule::class);
     }
 }
