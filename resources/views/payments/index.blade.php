@@ -458,11 +458,11 @@
                 <form method="GET"
                       action="{{ route('payments.index') }}">
 
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-6 gap-4">
 
 
                         {{-- Recherche --}}
-                        <div class="md:col-span-2">
+                        <div class="md:col-span-3">
 
                             <label class="block
                                           text-sm
@@ -604,6 +604,45 @@
                                     {{ request('status') == 'unpaid' ? 'selected' : '' }}>
                                     ❌ Non payé
                                 </option>
+
+                            </select>
+
+                        </div>
+
+
+                        {{-- Année scolaire --}}
+                        <div>
+
+                            <label class="block
+                                          text-sm
+                                          font-bold
+                                          text-gray-700
+                                          mb-2">
+                                Année scolaire
+                            </label>
+
+                            <select
+                                name="school_year_id"
+                                class="w-full
+                                       rounded-xl
+                                       border-gray-200
+                                       focus:border-[#0B2A55]
+                                       focus:ring-[#0B2A55]"
+                            >
+
+                                <option value=""
+                                    {{ $schoolYearId === null ? 'selected' : '' }}>
+                                    Toutes les années
+                                </option>
+
+                                @foreach($schoolYears as $schoolYear)
+
+                                    <option value="{{ $schoolYear->id }}"
+                                        {{ $schoolYearId === $schoolYear->id ? 'selected' : '' }}>
+                                        {{ $schoolYear->name }}
+                                    </option>
+
+                                @endforeach
 
                             </select>
 
@@ -820,7 +859,7 @@
                                     </td>
 
 
-                                    {{-- Période --}}
+                        {{-- Période --}}
                                     <td class="px-6 py-5">
 
                                         <span class="px-3 py-1

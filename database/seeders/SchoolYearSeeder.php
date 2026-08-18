@@ -40,7 +40,7 @@ class SchoolYearSeeder extends Seeder
 
             if ($current) {
 
-                $current->update(['is_current' => true]);
+                SchoolYear::setCurrent($current);
             }
         }
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
@@ -19,6 +20,17 @@ class StudentController extends Controller
     {
         $query = Student::query();
 
+        // Filtre année scolaire (appartenance via les inscriptions)
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : ($request->has('school_year_id')
+                ? null
+                : SchoolYear::defaultId());
+
+        $query->when($schoolYearId, fn ($q) => $q->whereHas('enrollments', fn ($e) => $e->where('school_year_id', $schoolYearId)));
+
         if ($request->filled('search')) {
 
             $query->search($request->search);
@@ -33,7 +45,7 @@ class StudentController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('students.index', compact('students'));
+        return view('students.index', compact('students', 'schoolYears', 'schoolYearId'));
     }
 
     /**
@@ -356,13 +368,16 @@ class StudentController extends Controller
 
             foreach ($validated['enrollments'] as $enrollment) {
 
+                $startDate = now()->toDateString();
+
                 Enrollment::create([
                     'student_id' => $student->id,
                     'subject_id' => $enrollment['subject_id'],
                     'teacher_id' => $enrollment['teacher_id'],
-                    'start_date' => now()->toDateString(),
+                    'start_date' => $startDate,
                     'status' => 'active',
                     'payment_type' => $enrollment['payment_type'],
+                    'school_year_id' => SchoolYear::forDate($startDate)?->id,
                 ]);
             }
 

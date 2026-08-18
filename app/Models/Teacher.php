@@ -30,6 +30,11 @@ class Teacher extends Model
         return $this->hasMany(Enrollment::class);
     }
 
+    public function classSessions()
+    {
+        return $this->hasMany(ClassSession::class);
+    }
+
     public function subjects()
     {
         return $this->belongsToMany(Subject::class, 'subject_teacher')

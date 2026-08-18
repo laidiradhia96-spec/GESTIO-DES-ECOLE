@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Announcement;
 use App\Models\Attendance;
 use App\Models\Payment;
+use App\Models\SchoolYear;
 use Illuminate\Support\Facades\Auth;
 
 class StudentDashboardController extends Controller
@@ -34,12 +35,18 @@ class StudentDashboardController extends Controller
         // INSCRIPTIONS / MATIÈRES
         // =====================================================
 
+        $schoolYear = SchoolYear::current() ?? SchoolYear::forDate(now());
+
         $enrollments = $student->enrollments()
             ->with([
                 'subject',
                 'teacher',
             ])
             ->where('status', 'active')
+            ->when(
+                $schoolYear,
+                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            )
             ->latest()
             ->get();
 
@@ -234,6 +241,10 @@ class StudentDashboardController extends Controller
             'student_id',
             $student->id
         )
+            ->when(
+                $schoolYear,
+                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            )
             ->with([
                 'subject',
                 'teacher',
@@ -247,6 +258,10 @@ class StudentDashboardController extends Controller
         // =====================================================
 
         $payments = $student->payments()
+            ->when(
+                $schoolYear,
+                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            )
             ->latest()
             ->take(5)
             ->get();
@@ -262,6 +277,10 @@ class StudentDashboardController extends Controller
             'student_id',
             $student->id
         )
+            ->when(
+                $schoolYear,
+                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            )
             ->where(
                 'status',
                 'present'
@@ -273,6 +292,10 @@ class StudentDashboardController extends Controller
             'student_id',
             $student->id
         )
+            ->when(
+                $schoolYear,
+                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            )
             ->where(
                 'status',
                 'absent'

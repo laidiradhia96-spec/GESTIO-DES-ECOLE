@@ -8,6 +8,7 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSignalementController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SchoolYearController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
 use App\Http\Controllers\SubjectController;
@@ -303,6 +304,20 @@ Route::middleware(['auth', 'admin'])->group(function () {
         'levels',
         LevelController::class
     );
+
+    // ======================================================
+    // ANNÉES SCOLAIRES
+    // ======================================================
+
+    Route::resource(
+        'school-years',
+        SchoolYearController::class
+    );
+
+    Route::post(
+        '/school-years/{schoolYear}/current',
+        [SchoolYearController::class, 'setCurrent']
+    )->name('school-years.set-current');
 
 });
 

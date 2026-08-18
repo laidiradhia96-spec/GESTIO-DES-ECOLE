@@ -2,6 +2,7 @@
 
 use App\Models\ClassSession;
 use App\Models\Enrollment;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -40,11 +41,18 @@ test('store accepte une séance pour un élève inscrit à la matière avec l\'e
     $teacher = Teacher::factory()->create();
     activeSessionEnrollment($student, $subject, $teacher);
 
+    $year = SchoolYear::create([
+        'name' => '2026-2027',
+        'start_date' => '2026-09-01',
+        'end_date' => '2027-08-31',
+    ]);
+
     $this->actingAs($user)->post(route('class-sessions.store'), sessionPayload($student, $subject, $teacher))
         ->assertRedirect(route('class-sessions.index'))
         ->assertSessionHas('success');
 
-    expect(ClassSession::count())->toBe(1);
+    expect(ClassSession::count())->toBe(1)
+        ->and(ClassSession::first()->school_year_id)->toBe($year->id);
 });
 
 test('store rejette une séance pour un élève non inscrit', function () {

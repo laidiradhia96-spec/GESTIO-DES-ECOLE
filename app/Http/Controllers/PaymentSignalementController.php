@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Subject;
 use App\Services\PaymentSignalementService;
 use App\Services\UnpaidDebtService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -20,35 +22,54 @@ class PaymentSignalementController extends Controller
         $service = app(UnpaidDebtService::class);
 
         // =========================
-        // ANNÉE + PÉRIODE
+        // ANNÉE SCOLAIRE + PÉRIODE
         // =========================
 
-        $years = $service->availableYears();
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
 
-        $year = $request->filled('year') ? (int) $request->year : (int) now()->format('Y');
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : ($request->has('school_year_id')
+                ? null
+                : SchoolYear::defaultId());
 
         $period = $request->filled('period') ? $request->period : null;
 
         $status = $request->filled('status') ? $request->status : null;
 
         // =========================
-        // MOIS DE L'ANNÉE SÉLECTIONNÉE
+        // MOIS DE L'ANNÉE SCOLAIRE SÉLECTIONNÉE
         // =========================
 
-        $months = collect(range(1, 12))->map(function (int $month) use ($year) {
+        $months = collect();
 
-            return [
-                'value' => $year.'-'.str_pad((string) $month, 2, '0', STR_PAD_LEFT),
-                'label' => $this->monthName($month).' '.$year,
-            ];
-        })->all();
+        $selectedSchoolYear = $schoolYears->firstWhere('id', $schoolYearId);
+
+        if ($selectedSchoolYear) {
+
+            $cursor = Carbon::parse($selectedSchoolYear->start_date)->startOfMonth();
+
+            $end = Carbon::parse($selectedSchoolYear->end_date)->startOfMonth();
+
+            while ($cursor->lte($end)) {
+
+                $months->push([
+                    'value' => $cursor->format('Y-m'),
+                    'label' => $this->monthName((int) $cursor->format('m')).' '.$cursor->format('Y'),
+                ]);
+
+                $cursor->addMonth();
+            }
+        }
+
+        $months = $months->all();
 
         // =========================
         // LIGNES D'IMPAYÉS (DYNAMIQUES)
         // =========================
 
-        $activeDebts = $service->activeDebts($year, $period);
-        $resolvedDebts = $service->resolvedHistory($year, $period);
+        $activeDebts = $service->activeDebts($schoolYearId, $period);
+        $resolvedDebts = $service->resolvedHistory($schoolYearId, $period);
 
         $rows = $status === 'resolved'
             ? $resolvedDebts
@@ -178,8 +199,8 @@ class PaymentSignalementController extends Controller
                 'signalements',
                 'subjects',
                 'months',
-                'years',
-                'year',
+                'schoolYears',
+                'schoolYearId',
                 'pendingCount',
                 'sentCount',
                 'resolvedCount',
@@ -324,14 +345,17 @@ class PaymentSignalementController extends Controller
             return $signalement;
         }
 
+        $signalementDate = now()->toDateString();
+
         return PaymentSignalement::create([
             'student_id' => $data['student_id'],
             'subject_id' => $data['subject_id'],
             'period' => $data['period'],
             'amount_remaining' => $data['amount_remaining'] ?? 0,
             'status' => 'pending',
-            'signalement_date' => now()->toDateString(),
+            'signalement_date' => $signalementDate,
             'note' => 'Dette calculée traitée manuellement.',
+            'school_year_id' => SchoolYear::forPeriod($data['period'], $signalementDate, $signalementDate)?->id,
         ]);
     }
 

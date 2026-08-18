@@ -76,7 +76,7 @@
 
                 <form method="GET" action="{{ route('attendances.index') }}">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
 
 
                         {{-- Recherche élève --}}
@@ -234,6 +234,50 @@
                                     Justifié
 
                                 </option>
+
+                            </select>
+
+                        </div>
+
+
+                        {{-- Année scolaire --}}
+                        <div>
+
+                            <label
+                                for="school_year_id"
+                                class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+
+                                Année scolaire
+
+                            </label>
+
+                            <select
+                                id="school_year_id"
+                                name="school_year_id"
+                                class="w-full rounded-xl border-gray-300
+                                       dark:border-gray-600
+                                       dark:bg-gray-700
+                                       dark:text-white
+                                       focus:border-[#0B2A55]
+                                       focus:ring-[#0B2A55]"
+                            >
+
+                                <option value=""
+                                    {{ $schoolYearId === null ? 'selected' : '' }}>
+                                    Toutes les années
+                                </option>
+
+                                @foreach ($schoolYears as $schoolYear)
+
+                                    <option
+                                        value="{{ $schoolYear->id }}"
+                                        {{ $schoolYearId === $schoolYear->id ? 'selected' : '' }}>
+
+                                        {{ $schoolYear->name }}
+
+                                    </option>
+
+                                @endforeach
 
                             </select>
 

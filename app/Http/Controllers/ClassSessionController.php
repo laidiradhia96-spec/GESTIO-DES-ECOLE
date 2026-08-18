@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ClassSession;
 use App\Models\Enrollment;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -92,6 +93,8 @@ class ClassSessionController extends Controller
                 ])
                 ->withInput();
         }
+
+        $validated['school_year_id'] = SchoolYear::forDate($validated['start_date'])?->id;
 
         ClassSession::create($validated);
 

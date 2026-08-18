@@ -4,6 +4,7 @@ use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -50,6 +51,12 @@ test('monthly: one unpaid signalement per student + subject + month when no paym
     $subject->teachers()->attach($teacher);
     monthlyEnrollment($student, $subject, $teacher);
 
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
     $service = app(PaymentSignalementService::class);
 
     syncAttendance($service, $student, $subject, '2026-08-05');
@@ -62,7 +69,8 @@ test('monthly: one unpaid signalement per student + subject + month when no paym
         ->get();
 
     expect($signalements)->toHaveCount(1)
-        ->and($signalements->first()->status)->toBe('pending');
+        ->and($signalements->first()->status)->toBe('pending')
+        ->and($signalements->first()->school_year_id)->toBe($year->id);
 });
 
 test('monthly: a payment covering the month resolves the open signalement', function () {

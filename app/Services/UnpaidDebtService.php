@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use Carbon\Carbon;
@@ -41,15 +42,15 @@ class UnpaidDebtService
      * une dette. Le type d'abonnement est résolu par enrollment actif,
      * puis dernier paiement, puis monthly par défaut.
      *
-     * @param  int|null  $year  année ciblée (null = toutes les années)
+     * @param  int|null  $schoolYearId  année scolaire ciblée (null = toutes les années)
      * @param  string|null  $period  mois ciblé "Y-m" (null = tous les mois)
      */
-    public function activeDebts(?int $year = null, ?string $period = null): Collection
+    public function activeDebts(?int $schoolYearId = null, ?string $period = null): Collection
     {
         $debts = collect();
 
         $pairs = Attendance::whereIn('status', self::OBLIGATION_STATUSES)
-            ->when($year, fn ($query) => $query->whereYear('date', $year))
+            ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
             ->select('student_id', 'subject_id')
             ->distinct()
             ->get();
@@ -58,9 +59,9 @@ class UnpaidDebtService
             $type = $this->resolveTypeForPair($pair->student_id, $pair->subject_id);
 
             if ($type === 'monthly') {
-                $debts = $debts->concat($this->monthlyDebts($pair->student_id, $pair->subject_id, $year, $period));
+                $debts = $debts->concat($this->monthlyDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period));
             } elseif ($type === 'vip') {
-                $debts = $debts->concat($this->vipDebts($pair->student_id, $pair->subject_id, $year, $period));
+                $debts = $debts->concat($this->vipDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period));
             }
         }
 
@@ -68,7 +69,7 @@ class UnpaidDebtService
         // par une dette calculée → ajoutés tels quels (rien ne disparaît).
         $storedIds = $debts->pluck('signalement.id')->filter();
 
-        $debts = $debts->concat($this->legacyOpenSignalements($year, $period, $storedIds));
+        $debts = $debts->concat($this->legacyOpenSignalements($schoolYearId, $period, $storedIds));
 
         return $debts->sort(function ($a, $b) {
             return strcmp((string) $b->period, (string) $a->period)
@@ -80,12 +81,12 @@ class UnpaidDebtService
     /**
      * Historique : signalements stockés résolus (filtre Statut = Résolu).
      */
-    public function resolvedHistory(?int $year = null, ?string $period = null): Collection
+    public function resolvedHistory(?int $schoolYearId = null, ?string $period = null): Collection
     {
         return PaymentSignalement::with(['student', 'subject', 'payment'])
             ->where('status', 'resolved')
             ->get()
-            ->filter(fn (PaymentSignalement $signalement) => $this->signalementMatchesFilters($signalement, $year, $period))
+            ->filter(fn (PaymentSignalement $signalement) => $this->signalementMatchesFilters($signalement, $schoolYearId, $period))
             ->map(fn (PaymentSignalement $signalement) => (object) [
                 'student' => $signalement->student,
                 'subject' => $signalement->subject,
@@ -99,29 +100,19 @@ class UnpaidDebtService
     }
 
     /**
-     * Années disponibles pour le filtre : années présentes dans les
-     * présences, les paiements et les signalements, + l'année courante.
+     * Mois distincts avec présence (present/late/justified) pour un élève + matière.
      */
-    public function availableYears(): Collection
+    private function obligationMonths(int $studentId, int $subjectId, ?int $schoolYearId): Collection
     {
-        $dates = collect();
-
-        Attendance::whereNotNull('date')->pluck('date')->each(fn ($date) => $dates->push($date));
-
-        Payment::whereNotNull('payment_date')->pluck('payment_date')->each(fn ($date) => $dates->push($date));
-
-        Payment::whereNotNull('period')->pluck('period')->each(function ($period) use ($dates) {
-            if (preg_match('/^\d{4}-\d{2}(-\d{2})?$/', (string) $period)) {
-                $dates->push(Carbon::parse((string) $period)->toDateString());
-            }
-        });
-
-        PaymentSignalement::whereNotNull('signalement_date')->pluck('signalement_date')->each(fn ($date) => $dates->push($date));
-
-        return collect([(int) now()->format('Y')])
-            ->merge($dates->filter()->map(fn ($date) => (int) Carbon::parse($date)->format('Y')))
+        return Attendance::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->whereIn('status', self::OBLIGATION_STATUSES)
+            ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
+            ->get()
+            ->pluck('date')
+            ->filter()
+            ->map(fn ($date) => Carbon::parse($date)->format('Y-m'))
             ->unique()
-            ->sortDesc()
             ->values();
     }
 
@@ -131,7 +122,7 @@ class UnpaidDebtService
      * Les mois proviennent des présences (present/late/justified) ;
      * "absent" ne génère jamais d'obligation.
      */
-    private function monthlyDebts(int $studentId, int $subjectId, ?int $year, ?string $period): Collection
+    private function monthlyDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period): Collection
     {
         $student = Student::find($studentId);
         $subject = Subject::find($subjectId);
@@ -140,7 +131,7 @@ class UnpaidDebtService
             return collect();
         }
 
-        $months = $this->obligationMonths($studentId, $subjectId, $year);
+        $months = $this->obligationMonths($studentId, $subjectId, $schoolYearId);
 
         if ($period) {
             $months = $months->filter(fn (string $month) => $month === $period);
@@ -192,7 +183,7 @@ class UnpaidDebtService
      * Obligations VIP : une dette par journée de présence non payée.
      * Chaque jour est indépendant ; les anciens jours non payés restent.
      */
-    private function vipDebts(int $studentId, int $subjectId, ?int $year, ?string $period): Collection
+    private function vipDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period): Collection
     {
         $student = Student::find($studentId);
         $subject = Subject::find($subjectId);
@@ -204,7 +195,7 @@ class UnpaidDebtService
         $dates = Attendance::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
             ->whereIn('status', self::OBLIGATION_STATUSES)
-            ->when($year, fn ($query) => $query->whereYear('date', $year))
+            ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
             ->get()
             ->pluck('date')
             ->filter()
@@ -259,23 +250,6 @@ class UnpaidDebtService
     }
 
     /**
-     * Mois distincts avec présence (present/late/justified) pour un élève + matière.
-     */
-    private function obligationMonths(int $studentId, int $subjectId, ?int $year): Collection
-    {
-        return Attendance::where('student_id', $studentId)
-            ->where('subject_id', $subjectId)
-            ->whereIn('status', self::OBLIGATION_STATUSES)
-            ->when($year, fn ($query) => $query->whereYear('date', $year))
-            ->get()
-            ->pluck('date')
-            ->filter()
-            ->map(fn ($date) => Carbon::parse($date)->format('Y-m'))
-            ->unique()
-            ->values();
-    }
-
-    /**
      * Signalement stocké ouvert pour la même dette mensuelle
      * (période "Y-m" ou nom de mois legacy).
      */
@@ -312,17 +286,17 @@ class UnpaidDebtService
      * Signalements stockés ouverts qui ne correspondent à aucune dette calculée.
      * Ils sont conservés tels quels (archive / anciennes dettes).
      */
-    private function legacyOpenSignalements(?int $year, ?string $period, Collection $coveredIds): Collection
+    private function legacyOpenSignalements(?int $schoolYearId, ?string $period, Collection $coveredIds): Collection
     {
         return PaymentSignalement::with(['student', 'subject'])
             ->whereIn('status', self::OPEN_STATUSES)
             ->get()
-            ->filter(function (PaymentSignalement $signalement) use ($year, $period, $coveredIds) {
+            ->filter(function (PaymentSignalement $signalement) use ($schoolYearId, $period, $coveredIds) {
                 if ($coveredIds->contains($signalement->id)) {
                     return false;
                 }
 
-                return $this->signalementMatchesFilters($signalement, $year, $period);
+                return $this->signalementMatchesFilters($signalement, $schoolYearId, $period);
             })
             ->map(fn (PaymentSignalement $signalement) => (object) [
                 'student' => $signalement->student,
@@ -336,19 +310,26 @@ class UnpaidDebtService
     }
 
     /**
-     * Un signalement stocké correspond-il aux filtres année / période ?
+     * Un signalement stocké correspond-il aux filtres année scolaire / période ?
+     *
+     * L'année scolaire est résolue via school_year_id ; pour un signalement
+     * legacy non lié (NULL), elle est déduite avec SchoolYear::forPeriod
+     * (période en priorité, signalement_date en source d'année).
      */
-    private function signalementMatchesFilters(PaymentSignalement $signalement, ?int $year, ?string $period): bool
+    private function signalementMatchesFilters(PaymentSignalement $signalement, ?int $schoolYearId, ?string $period): bool
     {
         $storedPeriod = (string) $signalement->period;
 
-        if ($year) {
-            if (preg_match('/^\d{4}-\d{2}(-\d{2})?$/', $storedPeriod)) {
-                if (substr($storedPeriod, 0, 4) !== (string) $year) {
-                    return false;
-                }
-            } elseif ($signalement->signalement_date
-                && (int) Carbon::parse($signalement->signalement_date)->format('Y') !== $year) {
+        if ($schoolYearId) {
+            $signalementSchoolYearId = (int) $signalement->school_year_id
+                ? (int) $signalement->school_year_id
+                : (SchoolYear::forPeriod(
+                    $storedPeriod,
+                    $signalement->signalement_date?->toDateString(),
+                    $signalement->signalement_date?->toDateString()
+                )?->id ?? null);
+
+            if ($signalementSchoolYearId !== $schoolYearId) {
                 return false;
             }
         }

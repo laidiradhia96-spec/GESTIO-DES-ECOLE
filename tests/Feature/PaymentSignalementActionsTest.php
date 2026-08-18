@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Subject;
 use App\Models\User;
 
@@ -10,6 +11,11 @@ test('envoyer une dette calculée crée un signalement envoyé sans doublon', fu
     $subject = Subject::factory()->create();
     debtEnrollment($student, $subject, 'monthly');
     debtAttendance($student, $subject, '2026-08-08', 'present');
+
+    $year = SchoolYear::firstOrCreate(
+        ['name' => '2025-2026'],
+        ['start_date' => '2025-09-01', 'end_date' => '2026-08-31']
+    );
 
     expect(PaymentSignalement::count())->toBe(0);
 
@@ -26,7 +32,8 @@ test('envoyer une dette calculée crée un signalement envoyé sans doublon', fu
         ->get();
 
     expect($signalements)->toHaveCount(1)
-        ->and($signalements->first()->status)->toBe('sent');
+        ->and($signalements->first()->status)->toBe('sent')
+        ->and($signalements->first()->school_year_id)->toBe($year->id);
 
     $this->actingAs($user)->get(route('payment-signalements.index'))
         ->assertOk()

@@ -102,6 +102,14 @@
 >
     🚨 Impayés
 </x-nav-link>
+
+<!-- Années scolaires -->
+<x-nav-link
+    :href="route('school-years.index')"
+    :active="request()->routeIs('school-years.*')"
+>
+    🗓️ Années scolaires
+</x-nav-link>
                 </div>
 
             </div>
@@ -293,6 +301,14 @@
     :active="request()->routeIs('payment-signalements.*')"
 >
     🚨 Impayés
+</x-responsive-nav-link>
+
+<!-- Années scolaires -->
+<x-responsive-nav-link
+    :href="route('school-years.index')"
+    :active="request()->routeIs('school-years.*')"
+>
+    🗓️ Années scolaires
 </x-responsive-nav-link>
         </div>
         <!-- Présences -->

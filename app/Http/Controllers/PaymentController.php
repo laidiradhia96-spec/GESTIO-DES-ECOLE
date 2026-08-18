@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Enrollment;
 use App\Models\Payment;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Services\PaymentSignalementService;
@@ -21,6 +22,18 @@ class PaymentController extends Controller
             'student',
             'subject',
         ]);
+
+        // =========================
+        // FILTRE ANNÉE SCOLAIRE
+        // =========================
+
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : null;
+
+        $query->when($schoolYearId, fn ($q) => $q->where('school_year_id', $schoolYearId));
 
         // =========================
         // RECHERCHE
@@ -94,35 +107,32 @@ class PaymentController extends Controller
         }
 
         // =========================
-        // STATISTIQUES
+        // STATISTIQUES (scope année scolaire)
         // =========================
 
-        $totalPaid = Payment::sum('amount_paid');
+        $statsQuery = Payment::query();
 
-        $totalDue = Payment::sum('amount_due');
+        $statsQuery->when($schoolYearId, fn ($q) => $q->where('school_year_id', $schoolYearId));
 
-        $totalRemaining = Payment::sum('remaining_amount');
+        $totalPaid = (clone $statsQuery)->sum('amount_paid');
 
-        $paidCount = Payment::where(
-            'remaining_amount',
-            '<=',
-            0
-        )
+        $totalDue = (clone $statsQuery)->sum('amount_due');
+
+        $totalRemaining = (clone $statsQuery)->sum('remaining_amount');
+
+        $paidCount = (clone $statsQuery)
+            ->where('remaining_amount', '<=', 0)
             ->where('amount_paid', '>', 0)
             ->count();
 
-        $partialCount = Payment::where(
-            'remaining_amount',
-            '>',
-            0
-        )
+        $partialCount = (clone $statsQuery)
+            ->where('remaining_amount', '>', 0)
             ->where('amount_paid', '>', 0)
             ->count();
 
-        $unpaidCount = Payment::where(
-            'amount_paid',
-            0
-        )->count();
+        $unpaidCount = (clone $statsQuery)
+            ->where('amount_paid', 0)
+            ->count();
 
         // =========================
         // LISTE
@@ -141,6 +151,8 @@ class PaymentController extends Controller
             compact(
                 'payments',
                 'subjects',
+                'schoolYears',
+                'schoolYearId',
                 'totalPaid',
                 'totalDue',
                 'totalRemaining',
@@ -335,6 +347,12 @@ class PaymentController extends Controller
                     : now()->format('H:i:s'),
 
                 'note' => $validated['note'] ?? null,
+
+                'school_year_id' => SchoolYear::forPeriod(
+                    $validated['period'],
+                    $validated['payment_date'] ?? null,
+                    $validated['payment_date'] ?? null
+                )?->id,
             ]);
 
             // =========================

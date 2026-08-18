@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Attendance;
 use App\Models\ClassSession;
 use App\Models\Level;
+use App\Models\SchoolYear;
 use App\Models\Subject;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
@@ -17,6 +18,19 @@ class TeacherController extends Controller
     public function index(Request $request)
     {
         $query = Teacher::with('levels', 'subjects');
+
+        // Filtre année scolaire (appartenance via inscriptions OU séances)
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : ($request->has('school_year_id')
+                ? null
+                : SchoolYear::defaultId());
+
+        $query->when($schoolYearId, fn ($q) => $q->where(fn ($w) => $w
+            ->whereHas('enrollments', fn ($e) => $e->where('school_year_id', $schoolYearId))
+            ->orWhereHas('classSessions', fn ($c) => $c->where('school_year_id', $schoolYearId))));
 
         // Recherche
         if ($request->filled('search')) {
@@ -40,7 +54,7 @@ class TeacherController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return view('teachers.index', compact('teachers'));
+        return view('teachers.index', compact('teachers', 'schoolYears', 'schoolYearId'));
     }
 
     /**

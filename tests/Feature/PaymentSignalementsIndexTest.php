@@ -4,10 +4,26 @@ use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
 use App\Models\User;
+
+function debtSchoolYears(): array
+{
+    $year2025 = SchoolYear::firstOrCreate(
+        ['name' => '2025-2026'],
+        ['start_date' => '2025-09-01', 'end_date' => '2026-08-31', 'is_current' => true]
+    );
+
+    $year2026 = SchoolYear::firstOrCreate(
+        ['name' => '2026-2027'],
+        ['start_date' => '2026-09-01', 'end_date' => '2027-08-31']
+    );
+
+    return [$year2025, $year2026];
+}
 
 function debtStudent(string $firstName, string $lastName): Student
 {
@@ -35,38 +51,53 @@ function debtEnrollment(Student $student, Subject $subject, string $paymentType)
 
 function debtAttendance(Student $student, Subject $subject, string $date, string $status = 'present'): Attendance
 {
+    debtSchoolYears();
+
     return Attendance::factory()->create([
         'student_id' => $student->id,
         'subject_id' => $subject->id,
         'teacher_id' => Teacher::factory()->create()->id,
         'date' => $date,
         'status' => $status,
+        'school_year_id' => SchoolYear::forDate($date)?->id,
     ]);
 }
 
 function debtPayment(Student $student, Subject $subject, array $attributes = []): Payment
 {
+    debtSchoolYears();
+
+    $period = $attributes['period'] ?? '2026-08';
+    $paymentDate = $attributes['payment_date'] ?? '2026-08-20';
+
     return Payment::factory()->create(array_merge([
         'student_id' => $student->id,
         'subject_id' => $subject->id,
         'payment_type' => 'monthly',
-        'period' => '2026-08',
+        'period' => $period,
         'amount_due' => 1500,
         'amount_paid' => 1500,
         'remaining_amount' => 0,
-        'payment_date' => '2026-08-20',
+        'payment_date' => $paymentDate,
+        'school_year_id' => SchoolYear::forPeriod($period, $paymentDate, $paymentDate)?->id,
     ], $attributes));
 }
 
 function debtStoredSignalement(Student $student, Subject $subject, array $attributes = []): PaymentSignalement
 {
+    debtSchoolYears();
+
+    $period = $attributes['period'] ?? '2026-08';
+    $signalementDate = $attributes['signalement_date'] ?? '2026-08-15';
+
     return PaymentSignalement::create(array_merge([
         'student_id' => $student->id,
         'subject_id' => $subject->id,
-        'period' => '2026-08',
+        'period' => $period,
         'amount_remaining' => 500,
         'status' => 'pending',
-        'signalement_date' => '2026-08-15',
+        'signalement_date' => $signalementDate,
+        'school_year_id' => SchoolYear::forPeriod($period, $signalementDate, $signalementDate)?->id,
         'note' => null,
     ], $attributes));
 }
@@ -183,7 +214,7 @@ test('un paiement mensuel de 2026 ne couvre jamais un mois de 2027', function ()
         'payment_date' => '2026-08-20',
     ]);
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2027]));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[1]->id]));
 
     $response->assertOk()
         ->assertSee('Août 2027');
@@ -205,12 +236,12 @@ test('une période legacy française ne couvre que la même année que payment_d
     ]);
 
     // 2026 couvert (masqué)
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026]))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[0]->id]))
         ->assertOk()
         ->assertSee('Aucun impayé');
 
     // 2027 non couvert → dette affichée
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2027]))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[1]->id]))
         ->assertOk()
         ->assertSee('Août 2027');
 });
@@ -250,12 +281,12 @@ test('vip : une dette de 2026 n\'apparaît jamais dans l\'année 2027', function
     debtAttendance($student, $subject, '2026-08-05', 'present');
     debtAttendance($student, $subject, '2027-01-10', 'present');
 
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026]))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[0]->id]))
         ->assertOk()
         ->assertSee('05 Août 2026')
         ->assertDontSee('10 Janvier 2027');
 
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2027]))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[1]->id]))
         ->assertOk()
         ->assertSee('10 Janvier 2027')
         ->assertDontSee('05 Août 2026');
@@ -268,28 +299,35 @@ test('le select période suit l\'année sélectionnée', function () {
     debtEnrollment($student, $subject, 'monthly');
     debtAttendance($student, $subject, '2027-08-10', 'present');
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2027]));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[1]->id]));
 
     $response->assertOk()
+        ->assertSee('value="2026-09"', false)
         ->assertSee('value="2027-01"', false)
         ->assertSee('value="2027-08"', false)
-        ->assertSee('value="2027-12"', false)
         ->assertDontSee('value="2026-08"', false)
+        ->assertDontSee('value="2027-12"', false)
         ->assertSee('Août 2027');
 });
 
-test('les années disponibles incluent l\'année courante et celles des données', function () {
+test('le select année scolaire liste les années créées et l\'option Toutes les années', function () {
     $user = User::factory()->create();
     $student = debtStudent('Laidi', 'LAIDI');
     $subject = Subject::factory()->create();
     debtEnrollment($student, $subject, 'monthly');
     debtAttendance($student, $subject, '2027-08-10', 'present');
 
+    $year2025 = debtSchoolYears()[0];
+    $year2026 = debtSchoolYears()[1];
+
     $response = $this->actingAs($user)->get(route('payment-signalements.index'));
 
     $response->assertOk()
-        ->assertSee('value="'.now()->format('Y').'"', false)
-        ->assertSee('value="2027"', false);
+        ->assertSee('Toutes les années')
+        ->assertSee('value="'.$year2025->id.'"', false)
+        ->assertSee('value="'.$year2026->id.'"', false)
+        ->assertSee('2025-2026')
+        ->assertSee('2026-2027');
 });
 
 test('un signalement stocké ouvert est réutilisé (statut + actions) sans en créer', function () {
@@ -326,7 +364,7 @@ test('la recherche et la période fonctionnent ensemble', function () {
     debtAttendance($ahmed, $subject, '2026-08-08', 'present');
 
     $response = $this->actingAs($user)->get(route('payment-signalements.index', [
-        'year' => 2026,
+        'school_year_id' => debtSchoolYears()[0]->id,
         'period' => '2026-08',
         'search' => 'Laidi',
     ]));
@@ -524,7 +562,7 @@ test('les statistiques sont calculées au scope année/période uniquement', fun
     debtAttendance($b, $subject, '2026-08-10', 'present');
     debtAttendance($b, $subject, '2026-09-10', 'present');
 
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026, 'period' => '2026-08']))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[0]->id, 'period' => '2026-08']))
         ->assertOk()
         ->assertViewHas('pendingCount', 2)
         ->assertViewHas('sentCount', 0)
@@ -546,7 +584,7 @@ test('le total restant correspond aux dettes actives de la période', function (
         'payment_date' => '2026-08-14',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026, 'period' => '2026-08']))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[0]->id, 'period' => '2026-08']))
         ->assertOk()
         ->assertViewHas('totalRemaining', 500.0);
 });
@@ -562,7 +600,7 @@ test('les statistiques incluent l\'historique résolu de l\'année/période', fu
     $b = debtStudent('Sami', 'Bouzid');
     debtStoredSignalement($b, $subject, ['status' => 'resolved']);
 
-    $this->actingAs($user)->get(route('payment-signalements.index', ['year' => 2026]))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYears()[0]->id]))
         ->assertOk()
         ->assertViewHas('pendingCount', 1)
         ->assertViewHas('resolvedCount', 1);

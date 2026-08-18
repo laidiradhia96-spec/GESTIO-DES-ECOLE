@@ -424,29 +424,36 @@
                         </div>
 
 
-                        {{-- Année --}}
+                        {{-- Année scolaire --}}
                         <div>
 
                             <label class="block text-sm font-medium
                                           text-gray-700 mb-2">
 
-                                Année
+                                Année scolaire
 
                             </label>
 
-                            <select name="year"
+                            <select name="school_year_id"
                                     class="w-full
                                            rounded-xl
                                            border-gray-200
                                            focus:border-[#0B2A55]
                                            focus:ring-[#0B2A55]">
 
-                                @foreach($years as $availableYear)
+                                <option value=""
+                                    {{ $schoolYearId === null ? 'selected' : '' }}>
 
-                                    <option value="{{ $availableYear }}"
-                                        {{ (int) request('year', now()->format('Y')) === (int) $availableYear ? 'selected' : '' }}>
+                                    Toutes les années
 
-                                        {{ $availableYear }}
+                                </option>
+
+                                @foreach($schoolYears as $schoolYear)
+
+                                    <option value="{{ $schoolYear->id }}"
+                                        {{ $schoolYearId === $schoolYear->id ? 'selected' : '' }}>
+
+                                        {{ $schoolYear->name }}
 
                                     </option>
 

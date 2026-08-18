@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\ClassSession;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Subject;
 use App\Models\Teacher;
 use Illuminate\Http\Request;
@@ -15,11 +16,26 @@ class SubjectController extends Controller
     /**
      * Liste des matières
      */
-    public function index()
+    public function index(Request $request)
     {
-        $subjects = Subject::latest()->get();
+        $subjects = Subject::latest();
 
-        return view('subjects.index', compact('subjects'));
+        // Filtre année scolaire (appartenance via inscriptions OU séances)
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : ($request->has('school_year_id')
+                ? null
+                : SchoolYear::defaultId());
+
+        $subjects->when($schoolYearId, fn ($q) => $q->where(fn ($w) => $w
+            ->whereHas('enrollments', fn ($e) => $e->where('school_year_id', $schoolYearId))
+            ->orWhereHas('classSessions', fn ($c) => $c->where('school_year_id', $schoolYearId))));
+
+        $subjects = $subjects->get();
+
+        return view('subjects.index', compact('subjects', 'schoolYears', 'schoolYearId'));
     }
 
     /**

@@ -104,6 +104,84 @@
         @endif
 
 
+        {{-- FILTRE ANNÉE SCOLAIRE --}}
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-8">
+
+            <form method="GET" action="{{ route('subjects.index') }}">
+
+                <div class="flex flex-col sm:flex-row gap-4 items-end">
+
+                    <div class="w-full sm:w-64">
+
+                        <label class="block text-sm font-bold text-[#0B2A55] mb-2">
+                            Année scolaire
+                        </label>
+
+                        <select
+                            name="school_year_id"
+                            class="w-full rounded-xl border-2 border-gray-200
+                                   bg-gray-50 px-4 py-2.5
+                                   text-gray-700
+                                   outline-none
+                                   transition
+                                   focus:border-[#C89B3C]
+                                   focus:ring-4
+                                   focus:ring-[#C89B3C]/10">
+
+                            <option value=""
+                                {{ $schoolYearId === null ? 'selected' : '' }}>
+                                Toutes les années
+                            </option>
+
+                            @foreach($schoolYears as $schoolYear)
+
+                                <option value="{{ $schoolYear->id }}"
+                                    {{ $schoolYearId === $schoolYear->id ? 'selected' : '' }}>
+                                    {{ $schoolYear->name }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                    </div>
+
+                    <button
+                        type="submit"
+                        class="inline-flex items-center justify-center gap-2
+                               rounded-xl
+                               bg-[#0B2A55]
+                               px-6 py-3
+                               text-sm font-bold text-white
+                               shadow-md
+                               hover:bg-[#061A33]
+                               transition">
+
+                        🔎 Rechercher
+
+                    </button>
+
+                    <a
+                        href="{{ route('subjects.index') }}"
+                        class="inline-flex items-center justify-center gap-2
+                               rounded-xl
+                               bg-gray-100
+                               px-6 py-3
+                               text-sm font-bold text-gray-700
+                               hover:bg-gray-200
+                               transition">
+
+                        ↻ Réinitialiser
+
+                    </a>
+
+                </div>
+
+            </form>
+
+        </div>
+
+
         {{-- STATISTICS --}}
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
 

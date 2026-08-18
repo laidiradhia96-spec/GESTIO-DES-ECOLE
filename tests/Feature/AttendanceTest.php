@@ -3,6 +3,7 @@
 use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -171,6 +172,12 @@ test('store enregistre la présence d\'un élève inscrit et préserve la logiqu
     $teacher = Teacher::factory()->create();
     $student = Student::factory()->create();
 
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
     activeEnrollment($student, $subject, $teacher);
 
     $response = $this->actingAs($user)->post(route('attendances.store'), [
@@ -192,12 +199,16 @@ test('store enregistre la présence d\'un élève inscrit et préserve la logiqu
         ->and($attendance->subject_id)->toBe($subject->id)
         ->and($attendance->teacher_id)->toBe($teacher->id)
         ->and($attendance->status)->toBe('present')
-        ->and($attendance->note)->toBe('ok');
+        ->and($attendance->note)->toBe('ok')
+        ->and($attendance->school_year_id)->toBe($year->id);
 
     expect(PaymentSignalement::where('student_id', $student->id)
         ->where('subject_id', $subject->id)
         ->where('status', 'pending')
-        ->count())->toBe(1);
+        ->count())->toBe(1)
+        ->and(PaymentSignalement::where('student_id', $student->id)
+            ->where('subject_id', $subject->id)
+            ->first()->school_year_id)->toBe($year->id);
 });
 
 test('update rejette l\'ajout d\'un élève non inscrit', function () {

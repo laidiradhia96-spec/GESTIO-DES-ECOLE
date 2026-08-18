@@ -3,6 +3,7 @@
 use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -41,6 +42,12 @@ test('store enregistre une date et une heure de paiement antidatées', function 
     $teacher = Teacher::factory()->create();
     paymentEnrollment($student, $subject, $teacher);
 
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
     $this->actingAs($user)->post(route('payments.store'), paymentPayload($student, $subject, [
         'payment_date' => '2026-08-03',
         'payment_time' => '14:30',
@@ -50,7 +57,8 @@ test('store enregistre une date et une heure de paiement antidatées', function 
     $payment = Payment::first();
 
     expect($payment->payment_date->format('Y-m-d'))->toBe('2026-08-03')
-        ->and($payment->payment_time)->toBe('14:30:00');
+        ->and($payment->payment_time)->toBe('14:30:00')
+        ->and($payment->school_year_id)->toBe($year->id);
 });
 
 test('store rejette une date de paiement future', function () {

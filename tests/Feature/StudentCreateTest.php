@@ -2,6 +2,7 @@
 
 use App\Models\Enrollment;
 use App\Models\Level;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -157,6 +158,12 @@ test('store accepte un élève 1AP avec un enseignant lié à la matière et au 
     $teacher = cycleTeacher('Ahmed', 'Benali', 'PRI');
     $subject->teachers()->attach($teacher);
 
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
     $this->actingAs($user)->post(route('students.store'), [
         'first_name' => 'Yasmine',
         'last_name' => 'Haddad',
@@ -172,7 +179,8 @@ test('store accepte un élève 1AP avec un enseignant lié à la matière et au 
     $student = Student::where('first_name', 'Yasmine')->first();
 
     expect($student)->not->toBeNull()
-        ->and(Enrollment::where('teacher_id', $teacher->id)->count())->toBe(1);
+        ->and(Enrollment::where('teacher_id', $teacher->id)->count())->toBe(1)
+        ->and(Enrollment::where('teacher_id', $teacher->id)->first()->school_year_id)->toBe($year->id);
 });
 
 test('store rejette un enseignant lié à une autre matière', function () {

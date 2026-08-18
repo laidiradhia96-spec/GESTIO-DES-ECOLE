@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attendance;
 use App\Models\Enrollment;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -24,6 +25,17 @@ class AttendanceController extends Controller
             'subject',
             'teacher',
         ]);
+
+        // Filtre année scolaire
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? (int) $request->school_year_id
+            : ($request->has('school_year_id')
+                ? null
+                : SchoolYear::defaultId());
+
+        $query->when($schoolYearId, fn ($q) => $q->where('school_year_id', $schoolYearId));
 
         // Recherche Ã©lÃ¨ve
         if ($request->filled('search')) {
@@ -75,7 +87,9 @@ class AttendanceController extends Controller
             'attendances.index',
             compact(
                 'attendances',
-                'subjects'
+                'subjects',
+                'schoolYears',
+                'schoolYearId'
             )
         );
     }
@@ -219,6 +233,8 @@ class AttendanceController extends Controller
                         'status' => $studentData['status'],
 
                         'note' => $studentData['note'] ?? null,
+
+                        'school_year_id' => SchoolYear::forDate($validated['date'])?->id,
                     ]
                 );
 

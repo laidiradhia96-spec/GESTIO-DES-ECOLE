@@ -313,7 +313,7 @@
                     action="{{ route('students.index') }}">
 
                     <div class="grid grid-cols-1
-                                md:grid-cols-3
+                                md:grid-cols-4
                                 gap-4">
 
 
@@ -464,6 +464,57 @@
                                     {{ request('level') == '3AS' ? 'selected' : '' }}>
                                     3AS
                                 </option>
+
+                            </select>
+
+                        </div>
+
+
+                        <!-- Année scolaire -->
+
+                        <div>
+
+                            <label
+                                class="block text-sm
+                                       font-bold
+                                       text-[#0B2A55]
+                                       dark:text-gray-200
+                                       mb-2">
+
+                                Année scolaire
+
+                            </label>
+
+
+                            <select
+                                name="school_year_id"
+
+                                class="w-full
+                                       px-4 py-3
+                                       rounded-xl
+                                       border-2
+                                       border-gray-200
+                                       bg-gray-50
+                                       outline-none
+                                       transition
+
+                                       focus:border-[#C89B3C]
+                                       focus:ring-4
+                                       focus:ring-[#C89B3C]/10">
+
+                                <option value=""
+                                    {{ $schoolYearId === null ? 'selected' : '' }}>
+                                    Toutes les années
+                                </option>
+
+                                @foreach($schoolYears as $schoolYear)
+
+                                    <option value="{{ $schoolYear->id }}"
+                                        {{ $schoolYearId === $schoolYear->id ? 'selected' : '' }}>
+                                        {{ $schoolYear->name }}
+                                    </option>
+
+                                @endforeach
 
                             </select>
 

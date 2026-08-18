@@ -6,6 +6,7 @@ use App\Models\Attendance;
 use App\Models\Enrollment;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
+use App\Models\SchoolYear;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -226,6 +227,8 @@ class PaymentSignalementService
             return;
         }
 
+        $signalementDate = now()->toDateString();
+
         PaymentSignalement::create([
             'student_id' => $studentId,
             'subject_id' => $subjectId,
@@ -233,10 +236,11 @@ class PaymentSignalementService
             'period' => $period,
             'amount_remaining' => $remaining,
             'status' => 'pending',
-            'signalement_date' => now()->toDateString(),
+            'signalement_date' => $signalementDate,
             'attendance_date' => $date->toDateString(),
             'sent_at' => null,
             'note' => 'Abonnement mensuel non payé pour '.$this->frenchMonth((int) $date->format('m')).' '.$date->format('Y').'.',
+            'school_year_id' => SchoolYear::forPeriod($period, $signalementDate, $signalementDate)?->id,
         ]);
     }
 
@@ -282,6 +286,8 @@ class PaymentSignalementService
             return;
         }
 
+        $signalementDate = now()->toDateString();
+
         PaymentSignalement::create([
             'student_id' => $studentId,
             'subject_id' => $subjectId,
@@ -289,12 +295,13 @@ class PaymentSignalementService
             'period' => $period,
             'amount_remaining' => $remaining,
             'status' => 'pending',
-            'signalement_date' => now()->toDateString(),
+            'signalement_date' => $signalementDate,
             'attendance_date' => $date->toDateString(),
             'sent_at' => null,
             'note' => $payment
                 ? 'Reste à payer pour le paiement VIP du jour.'
                 : 'Paiement VIP du jour non réglé.',
+            'school_year_id' => SchoolYear::forPeriod($period, $signalementDate, $signalementDate)?->id,
         ]);
     }
 
