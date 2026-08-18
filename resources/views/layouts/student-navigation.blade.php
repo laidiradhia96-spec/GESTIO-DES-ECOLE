@@ -52,14 +52,14 @@
 
                 </a>
 
-                <a href="{{ route('student.dashboard') }}"
+                <a href="{{ route('student.subjects') }}"
                    class="text-sm font-semibold text-gray-700 hover:text-blue-900">
 
                     📚 Mes matières
 
                 </a>
 
-                <a href="{{ route('student.dashboard') }}"
+                <a href="{{ route('student.attendances') }}"
                    class="text-sm font-semibold text-gray-700 hover:text-blue-900">
 
                     📋 Mes présences

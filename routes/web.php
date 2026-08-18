@@ -332,6 +332,16 @@ Route::middleware('auth')->group(function () {
         [StudentDashboardController::class, 'index']
     )->name('student.dashboard');
 
+    Route::get(
+        '/student/attendances',
+        [StudentDashboardController::class, 'attendances']
+    )->name('student.attendances');
+
+    Route::get(
+        '/student/subjects',
+        [StudentDashboardController::class, 'subjects']
+    )->name('student.subjects');
+
 });
 
 // ======================================================

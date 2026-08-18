@@ -6,6 +6,8 @@ use App\Models\Announcement;
 use App\Models\Attendance;
 use App\Models\Payment;
 use App\Models\SchoolYear;
+use App\Models\Teacher;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class StudentDashboardController extends Controller
@@ -353,6 +355,174 @@ class StudentDashboardController extends Controller
                 'presentCount',
                 'absentCount',
                 'announcements'
+            )
+        );
+    }
+
+    /**
+     * Historique complet des présences de l'élève connecté
+     */
+    public function attendances(Request $request)
+    {
+        // =====================================================
+        // UTILISATEUR CONNECTÉ
+        // =====================================================
+
+        $user = Auth::user();
+
+        // Vérifier que le compte est bien un élève
+        if ($user->role !== 'student') {
+            abort(
+                403,
+                'Cette page est réservée aux élèves.'
+            );
+        }
+
+        $student = $user->student;
+
+        // Vérifier que le compte possède bien un profil élève
+        if (! $student) {
+            abort(
+                403,
+                'Ce compte ne possède pas de profil élève.'
+            );
+        }
+
+        // =====================================================
+        // FILTRES
+        // =====================================================
+
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $teachers = Teacher::whereIn(
+            'id',
+            $student->attendances()
+                ->select('teacher_id')
+                ->distinct()
+        )
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get();
+
+        // =====================================================
+        // PRÉSENCES DE L'ÉLÈVE
+        // =====================================================
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? $request->school_year_id
+            : null;
+
+        $date = $request->filled('date')
+            ? $request->input('date')
+            : null;
+
+        $teacherId = $request->filled('teacher_id')
+            ? $request->teacher_id
+            : null;
+
+        $attendances = $student->attendances()
+            ->with([
+                'subject',
+                'teacher',
+            ])
+            ->when(
+                $schoolYearId,
+                fn ($query) => $query->where('school_year_id', $schoolYearId)
+            )
+            ->when(
+                $date,
+                fn ($query) => $query->whereDate('date', $date)
+            )
+            ->when(
+                $teacherId,
+                fn ($query) => $query->where('teacher_id', $teacherId)
+            )
+            ->latest('date')
+            ->paginate(15)
+            ->withQueryString();
+
+        // =====================================================
+        // ENVOI À LA VUE
+        // =====================================================
+
+        return view(
+            'students.attendances',
+            compact(
+                'student',
+                'schoolYears',
+                'teachers',
+                'attendances'
+            )
+        );
+    }
+
+    /**
+     * Historique des matières de l'élève connecté
+     */
+    public function subjects(Request $request)
+    {
+        // =====================================================
+        // UTILISATEUR CONNECTÉ
+        // =====================================================
+
+        $user = Auth::user();
+
+        // Vérifier que le compte est bien un élève
+        if ($user->role !== 'student') {
+            abort(
+                403,
+                'Cette page est réservée aux élèves.'
+            );
+        }
+
+        $student = $user->student;
+
+        // Vérifier que le compte possède bien un profil élève
+        if (! $student) {
+            abort(
+                403,
+                'Ce compte ne possède pas de profil élève.'
+            );
+        }
+
+        // =====================================================
+        // FILTRES
+        // =====================================================
+
+        $schoolYears = SchoolYear::orderByDesc('start_date')->get();
+
+        $schoolYearId = $request->filled('school_year_id')
+            ? $request->school_year_id
+            : null;
+
+        // =====================================================
+        // INSCRIPTIONS DE L'ÉLÈVE
+        // =====================================================
+
+        $enrollments = $student->enrollments()
+            ->with([
+                'subject',
+                'teacher',
+                'schoolYear',
+            ])
+            ->when(
+                $schoolYearId,
+                fn ($query) => $query->where('school_year_id', $schoolYearId)
+            )
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        // =====================================================
+        // ENVOI À LA VUE
+        // =====================================================
+
+        return view(
+            'students.subjects',
+            compact(
+                'student',
+                'schoolYears',
+                'enrollments'
             )
         );
     }
