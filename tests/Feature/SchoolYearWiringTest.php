@@ -97,7 +97,7 @@ test('forPeriod retourne null quand aucune année ne couvre la période ou la da
         ->and(SchoolYear::forPeriod('2028-09'))->toBeNull();
 });
 
-test('le dashboard étudiant ne montre que l\'année scolaire courante', function () {
+test('le dashboard étudiant montre toutes les matières et les activités de la semaine en cours', function () {
     $year2025 = SchoolYear::create([
         'name' => '2025-2026',
         'start_date' => '2025-09-01',
@@ -127,7 +127,7 @@ test('le dashboard étudiant ne montre que l\'année scolaire courante', functio
         'school_year_id' => $year2026->id,
     ]);
 
-    Enrollment::factory()->create([
+    $otherEnrollment = Enrollment::factory()->create([
         'student_id' => $student->id,
         'subject_id' => $otherSubject->id,
         'teacher_id' => $teacher->id,
@@ -135,11 +135,14 @@ test('le dashboard étudiant ne montre que l\'année scolaire courante', functio
         'school_year_id' => $year2025->id,
     ]);
 
+    $thisWeekDate = now()->startOfWeek()->toDateString();
+    $lastWeekDate = now()->subWeek()->startOfWeek()->toDateString();
+
     Attendance::factory()->create([
         'student_id' => $student->id,
         'subject_id' => $currentSubject->id,
         'teacher_id' => $teacher->id,
-        'date' => '2026-09-15',
+        'date' => $thisWeekDate,
         'status' => 'present',
         'school_year_id' => $year2026->id,
     ]);
@@ -148,7 +151,7 @@ test('le dashboard étudiant ne montre que l\'année scolaire courante', functio
         'student_id' => $student->id,
         'subject_id' => $otherSubject->id,
         'teacher_id' => $teacher->id,
-        'date' => '2026-08-20',
+        'date' => $lastWeekDate,
         'status' => 'absent',
         'school_year_id' => $year2025->id,
     ]);
@@ -157,7 +160,7 @@ test('le dashboard étudiant ne montre que l\'année scolaire courante', functio
         'student_id' => $student->id,
         'subject_id' => $currentSubject->id,
         'period' => '2026-09',
-        'payment_date' => '2026-09-10',
+        'payment_date' => $thisWeekDate,
         'school_year_id' => $year2026->id,
     ]);
 
@@ -165,19 +168,22 @@ test('le dashboard étudiant ne montre que l\'année scolaire courante', functio
         'student_id' => $student->id,
         'subject_id' => $otherSubject->id,
         'period' => '2026-08',
-        'payment_date' => '2026-08-10',
+        'payment_date' => now()->subWeeks(3)->toDateString(),
         'school_year_id' => $year2025->id,
     ]);
 
     $response = $this->actingAs($user)->get(route('student.dashboard'));
 
+    // Toutes les matières restent visibles, quelle que soit l'année scolaire
     $response->assertOk()
-        ->assertViewHas('subjectsCount', 1)
+        ->assertViewHas('subjectsCount', 2)
         ->assertViewHas('presentCount', 1)
         ->assertViewHas('absentCount', 0);
 
-    expect($response->viewData('enrollments'))->toHaveCount(1)
-        ->and($response->viewData('enrollments')->first()->id)->toBe($currentEnrollment->id)
+    expect($response->viewData('enrollments'))->toHaveCount(2)
+        ->and($response->viewData('enrollments')->pluck('id')->sort()->values()->all())
+        ->toBe([$currentEnrollment->id, $otherEnrollment->id])
+        // Les activités récentes ne montrent que la semaine en cours
         ->and($response->viewData('attendances'))->toHaveCount(1)
         ->and($response->viewData('payments'))->toHaveCount(1);
 });

@@ -50,4 +50,9 @@ class Subject extends Model
             ->withPivot('teacher_id', 'start_date', 'status')
             ->withTimestamps();
     }
+
+    public function groups()
+    {
+        return $this->hasMany(Group::class);
+    }
 }

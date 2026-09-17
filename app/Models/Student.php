@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Student extends Model
 {
@@ -63,7 +65,7 @@ class Student extends Model
     /**
      * Compte utilisateur de l'élève
      */
-    public function user()
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
@@ -98,5 +100,15 @@ class Student extends Model
     public function paymentSignalements()
     {
         return $this->hasMany(PaymentSignalement::class);
+    }
+
+    /**
+     * Groupes pédagogiques de l'élève
+     */
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(Group::class, 'student_group')
+            ->withPivot(['joined_at', 'is_active'])
+            ->withTimestamps();
     }
 }

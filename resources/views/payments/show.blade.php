@@ -123,6 +123,20 @@
                             </div>
 
 
+                            {{-- Groupe --}}
+                            <div class="info-item">
+
+                                <span>
+                                    Groupe
+                                </span>
+
+                                <strong>
+                                    {{ $payment->group->name ?? '-' }}
+                                </strong>
+
+                            </div>
+
+
                             {{-- Période --}}
                             <div class="info-item">
 
@@ -173,8 +187,8 @@
                                 </span>
 
                                 <strong>
-                                    {{ $enrollment?->teacher->last_name }}
-                                    {{ $enrollment?->teacher->first_name }}
+                                    {{ $payment->group?->teacher?->last_name }}
+                                    {{ $payment->group?->teacher?->first_name }}
                                 </strong>
 
                             </div>
@@ -378,6 +392,19 @@
                             <div class="info-item">
 
                                 <span>
+                                    Groupe
+                                </span>
+
+                                <strong>
+                                    {{ $payment->group->name ?? '-' }}
+                                </strong>
+
+                            </div>
+
+
+                            <div class="info-item">
+
+                                <span>
                                     Période
                                 </span>
 
@@ -423,8 +450,8 @@
                                 </span>
 
                                 <strong>
-                                    {{ $enrollment?->teacher->last_name }}
-                                    {{ $enrollment?->teacher->first_name }}
+                                    {{ $payment->group?->teacher?->last_name }}
+                                    {{ $payment->group?->teacher?->first_name }}
                                 </strong>
 
                             </div>

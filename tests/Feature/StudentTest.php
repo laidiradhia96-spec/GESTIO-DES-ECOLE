@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Group;
+use App\Models\GroupTariff;
 use App\Models\Level;
+use App\Models\SchoolYear;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\Teacher;
@@ -24,6 +27,30 @@ test('an authenticated user can create a student with enrollments', function () 
     $teacher->levels()->attach($level);
     $subject->teachers()->attach($teacher);
 
+    $year = SchoolYear::firstOrCreate(
+        ['name' => '2025-2026'],
+        ['start_date' => '2025-09-01', 'end_date' => '2026-08-31']
+    );
+
+    $group = Group::create([
+        'name' => 'Groupe Normal',
+        'level' => '1AP',
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'school_year_id' => $year->id,
+        'mode' => 'normal',
+        'is_active' => true,
+    ]);
+
+    GroupTariff::create([
+        'group_id' => $group->id,
+        'billing_type' => 'monthly',
+        'student_price' => 1500,
+        'teacher_share' => 900,
+        'academy_share' => 600,
+        'effective_from' => now()->toDateString(),
+    ]);
+
     $response = $this->actingAs($user)->post(route('students.store'), [
         'first_name' => 'Ahmed',
         'last_name' => 'Benali',
@@ -36,7 +63,7 @@ test('an authenticated user can create a student with enrollments', function () 
         'enrollments' => [
             [
                 'subject_id' => $subject->id,
-                'teacher_id' => $teacher->id,
+                'group_id' => $group->id,
                 'payment_type' => 'monthly',
             ],
         ],
@@ -52,7 +79,8 @@ test('an authenticated user can create a student with enrollments', function () 
         ->and($student->level)->toBe('1AP')
         ->and($student->address)->toBe('Alger')
         ->and($student->enrollments)->toHaveCount(1)
-        ->and($student->enrollments->first()->teacher_id)->toBe($teacher->id);
+        ->and($student->enrollments->first()->teacher_id)->toBe($teacher->id)
+        ->and($student->groups()->where('groups.id', $group->id)->exists())->toBeTrue();
 
     $this->assertDatabaseHas('enrollments', [
         'student_id' => $student->id,
@@ -63,7 +91,7 @@ test('an authenticated user can create a student with enrollments', function () 
     ]);
 });
 
-test('student creation is rejected when the teacher does not match the subject', function () {
+test('student creation is rejected when the group does not match the subject', function () {
     $user = User::factory()->create();
 
     $subject = Subject::factory()->create([
@@ -79,6 +107,30 @@ test('student creation is rejected when the teacher does not match the subject',
     $teacher = Teacher::factory()->create();
     $otherSubject->teachers()->attach($teacher);
 
+    $year = SchoolYear::firstOrCreate(
+        ['name' => '2025-2026'],
+        ['start_date' => '2025-09-01', 'end_date' => '2026-08-31']
+    );
+
+    $group = Group::create([
+        'name' => 'Groupe Autre',
+        'level' => '1AP',
+        'subject_id' => $otherSubject->id,
+        'teacher_id' => $teacher->id,
+        'school_year_id' => $year->id,
+        'mode' => 'normal',
+        'is_active' => true,
+    ]);
+
+    GroupTariff::create([
+        'group_id' => $group->id,
+        'billing_type' => 'monthly',
+        'student_price' => 1500,
+        'teacher_share' => 900,
+        'academy_share' => 600,
+        'effective_from' => now()->toDateString(),
+    ]);
+
     $this->actingAs($user)
         ->post(route('students.store'), [
             'first_name' => 'Ahmed',
@@ -87,12 +139,12 @@ test('student creation is rejected when the teacher does not match the subject',
             'enrollments' => [
                 [
                     'subject_id' => $subject->id,
-                    'teacher_id' => $teacher->id,
+                    'group_id' => $group->id,
                     'payment_type' => 'monthly',
                 ],
             ],
         ])
-        ->assertSessionHasErrors('enrollments.0.teacher_id');
+        ->assertSessionHasErrors('enrollments.0.group_id');
 
     expect(Student::count())->toBe(0);
 });
@@ -107,6 +159,30 @@ test('student creation is rejected when the subject does not match the level', f
     $teacher = Teacher::factory()->create();
     $subject->teachers()->attach($teacher);
 
+    $year = SchoolYear::firstOrCreate(
+        ['name' => '2025-2026'],
+        ['start_date' => '2025-09-01', 'end_date' => '2026-08-31']
+    );
+
+    $group = Group::create([
+        'name' => 'Groupe CEM',
+        'level' => '2AM',
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'school_year_id' => $year->id,
+        'mode' => 'normal',
+        'is_active' => true,
+    ]);
+
+    GroupTariff::create([
+        'group_id' => $group->id,
+        'billing_type' => 'monthly',
+        'student_price' => 1500,
+        'teacher_share' => 900,
+        'academy_share' => 600,
+        'effective_from' => now()->toDateString(),
+    ]);
+
     $this->actingAs($user)
         ->post(route('students.store'), [
             'first_name' => 'Ahmed',
@@ -115,8 +191,8 @@ test('student creation is rejected when the subject does not match the level', f
             'enrollments' => [
                 [
                     'subject_id' => $subject->id,
-                    'teacher_id' => $teacher->id,
-                    'payment_type' => 'vip',
+                    'group_id' => $group->id,
+                    'payment_type' => 'monthly',
                 ],
             ],
         ])

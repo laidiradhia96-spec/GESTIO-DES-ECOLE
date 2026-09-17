@@ -208,11 +208,11 @@
                                                 </span>
                                             @endif
 
-                                            @if ($enrollment->payment_type === 'vip')
+                                            @if (in_array($enrollment->payment_type, ['vip', 'vip_monthly', 'vip_per_session']))
                                                 <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-purple-100 text-purple-700">
                                                     ⭐ VIP
                                                 </span>
-                                            @elseif ($enrollment->payment_type === 'monthly')
+                                            @elseif (in_array($enrollment->payment_type, ['monthly', 'special_monthly']))
                                                 <span class="px-3 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
                                                     📅 Mensuel
                                                 </span>

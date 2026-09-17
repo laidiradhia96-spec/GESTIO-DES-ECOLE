@@ -38,8 +38,8 @@ class SchoolYear extends Model
      */
     public static function defaultId(): ?int
     {
-        return static::current()?->id
-            ?? static::forDate(now())?->id
+        return static::forDate(now())?->id
+            ?? static::current()?->id
             ?? static::orderByDesc('start_date')->first()?->id
             ?? null;
     }
@@ -193,6 +193,14 @@ class SchoolYear extends Model
     public function paymentSchedules(): HasMany
     {
         return $this->hasMany(PaymentSchedule::class);
+    }
+
+    /**
+     * Groupes pédagogiques de l'année
+     */
+    public function groups(): HasMany
+    {
+        return $this->hasMany(Group::class);
     }
 
     /**

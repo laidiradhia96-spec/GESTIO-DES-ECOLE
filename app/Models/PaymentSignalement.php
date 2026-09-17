@@ -13,6 +13,7 @@ class PaymentSignalement extends Model
     protected $fillable = [
         'student_id',
         'subject_id',
+        'group_id',
         'payment_id',
         'period',
         'amount_remaining',
@@ -45,6 +46,14 @@ class PaymentSignalement extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    /**
+     * Groupe
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 
     /**

@@ -37,18 +37,15 @@ class StudentDashboardController extends Controller
         // INSCRIPTIONS / MATIÈRES
         // =====================================================
 
-        $schoolYear = SchoolYear::current() ?? SchoolYear::forDate(now());
+        // Toutes les inscriptions de l'élève restent visibles,
+        // quel que soit le statut ou l'année scolaire.
 
         $enrollments = $student->enrollments()
             ->with([
                 'subject',
                 'teacher',
+                'group.currentTariff',
             ])
-            ->where('status', 'active')
-            ->when(
-                $schoolYear,
-                fn ($query) => $query->where('school_year_id', $schoolYear->id)
-            )
             ->latest()
             ->get();
 
@@ -129,10 +126,43 @@ class StudentDashboardController extends Controller
                 );
 
             // =================================================
-            // ⭐ VIP
+            // RÉSOUDRE LE TYPE DE PAIEMENT
             // =================================================
 
-            if ($enrollment->payment_type === 'vip') {
+            // Priorité : Group → GroupTariff (SSOT) → enrollment.payment_type → dernier Payment → 'monthly'
+            $paymentType = null;
+
+            if ($enrollment->group && $enrollment->group->currentTariff) {
+                $group = $enrollment->group;
+                $tariff = $group->currentTariff;
+
+                if ($group->mode === 'vip') {
+                    $paymentType = $tariff->billing_type === 'monthly' ? 'vip_monthly' : 'vip_per_session';
+                } elseif ($group->mode === 'special') {
+                    $paymentType = 'special_monthly';
+                } else {
+                    $paymentType = 'monthly';
+                }
+            }
+
+            if (! $paymentType && $enrollment->payment_type) {
+                $paymentType = $enrollment->payment_type;
+            }
+
+            if (! $paymentType) {
+                $lastPaymentType = Payment::where('student_id', $student->id)
+                    ->where('subject_id', $enrollment->subject_id)
+                    ->latest('id')
+                    ->value('payment_type');
+
+                $paymentType = $lastPaymentType ?? 'monthly';
+            }
+
+            // =================================================
+            // VIP (vip_monthly, vip_per_session, vip legacy)
+            // =================================================
+
+            if (in_array($paymentType, ['vip', 'vip_monthly', 'vip_per_session'])) {
 
                 /*
                  * VIP :
@@ -170,10 +200,10 @@ class StudentDashboardController extends Controller
             }
 
             // =================================================
-            // 📅 MENSUEL
+            // 📅 MENSUEL (monthly, special_monthly)
             // =================================================
 
-            elseif ($enrollment->payment_type === 'monthly') {
+            elseif (in_array($paymentType, ['monthly', 'special_monthly'])) {
 
                 /*
                  * MENSUEL :
@@ -239,13 +269,22 @@ class StudentDashboardController extends Controller
         // DERNIÈRES PRÉSENCES
         // =====================================================
 
+        $schoolYearId = SchoolYear::defaultId();
+
         $attendances = Attendance::where(
             'student_id',
             $student->id
         )
-            ->when(
-                $schoolYear,
-                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            ->when($schoolYearId, fn ($q) => $q->where('school_year_id', $schoolYearId))
+            ->whereDate(
+                'date',
+                '>=',
+                now()->startOfWeek()->toDateString()
+            )
+            ->whereDate(
+                'date',
+                '<=',
+                now()->endOfWeek()->toDateString()
             )
             ->with([
                 'subject',
@@ -260,9 +299,16 @@ class StudentDashboardController extends Controller
         // =====================================================
 
         $payments = $student->payments()
-            ->when(
-                $schoolYear,
-                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            ->when($schoolYearId, fn ($q) => $q->where('school_year_id', $schoolYearId))
+            ->whereDate(
+                'payment_date',
+                '>=',
+                now()->startOfWeek()->toDateString()
+            )
+            ->whereDate(
+                'payment_date',
+                '<=',
+                now()->endOfWeek()->toDateString()
             )
             ->latest()
             ->take(5)
@@ -274,14 +320,20 @@ class StudentDashboardController extends Controller
 
         $subjectsCount = $enrollments->count();
 
-        // Nombre de présences
+        // Nombre de présences de la semaine
         $presentCount = Attendance::where(
             'student_id',
             $student->id
         )
-            ->when(
-                $schoolYear,
-                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            ->whereDate(
+                'date',
+                '>=',
+                now()->startOfWeek()->toDateString()
+            )
+            ->whereDate(
+                'date',
+                '<=',
+                now()->endOfWeek()->toDateString()
             )
             ->where(
                 'status',
@@ -289,14 +341,20 @@ class StudentDashboardController extends Controller
             )
             ->count();
 
-        // Nombre d'absences
+        // Nombre d'absences de la semaine
         $absentCount = Attendance::where(
             'student_id',
             $student->id
         )
-            ->when(
-                $schoolYear,
-                fn ($query) => $query->where('school_year_id', $schoolYear->id)
+            ->whereDate(
+                'date',
+                '>=',
+                now()->startOfWeek()->toDateString()
+            )
+            ->whereDate(
+                'date',
+                '<=',
+                now()->endOfWeek()->toDateString()
             )
             ->where(
                 'status',

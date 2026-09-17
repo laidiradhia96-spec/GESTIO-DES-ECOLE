@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Attendance;
 use App\Models\Enrollment;
+use App\Models\Group;
+use App\Models\GroupTariff;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
 use App\Models\SchoolYear;
@@ -51,17 +53,17 @@ class UnpaidDebtService
 
         $pairs = Attendance::whereIn('status', self::OBLIGATION_STATUSES)
             ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
-            ->select('student_id', 'subject_id')
+            ->select('student_id', 'subject_id', 'group_id')
             ->distinct()
             ->get();
 
         foreach ($pairs as $pair) {
-            $type = $this->resolveTypeForPair($pair->student_id, $pair->subject_id);
+            $type = $this->resolveTypeForPair($pair->student_id, $pair->subject_id, $pair->group_id);
 
-            if ($type === 'monthly') {
-                $debts = $debts->concat($this->monthlyDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period));
-            } elseif ($type === 'vip') {
-                $debts = $debts->concat($this->vipDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period));
+            if (in_array($type, ['monthly', 'special_monthly'])) {
+                $debts = $debts->concat($this->monthlyDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period, $pair->group_id));
+            } elseif (in_array($type, ['vip', 'vip_monthly', 'vip_per_session'])) {
+                $debts = $debts->concat($this->vipDebts($pair->student_id, $pair->subject_id, $schoolYearId, $period, $pair->group_id));
             }
         }
 
@@ -102,10 +104,11 @@ class UnpaidDebtService
     /**
      * Mois distincts avec présence (present/late/justified) pour un élève + matière.
      */
-    private function obligationMonths(int $studentId, int $subjectId, ?int $schoolYearId): Collection
+    private function obligationMonths(int $studentId, int $subjectId, ?int $schoolYearId, ?int $groupId = null): Collection
     {
         return Attendance::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
+            ->when($groupId, fn ($query) => $query->where('group_id', $groupId))
             ->whereIn('status', self::OBLIGATION_STATUSES)
             ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
             ->get()
@@ -122,7 +125,7 @@ class UnpaidDebtService
      * Les mois proviennent des présences (present/late/justified) ;
      * "absent" ne génère jamais d'obligation.
      */
-    private function monthlyDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period): Collection
+    private function monthlyDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period, ?int $groupId = null): Collection
     {
         $student = Student::find($studentId);
         $subject = Subject::find($subjectId);
@@ -131,7 +134,7 @@ class UnpaidDebtService
             return collect();
         }
 
-        $months = $this->obligationMonths($studentId, $subjectId, $schoolYearId);
+        $months = $this->obligationMonths($studentId, $subjectId, $schoolYearId, $groupId);
 
         if ($period) {
             $months = $months->filter(fn (string $month) => $month === $period);
@@ -144,13 +147,14 @@ class UnpaidDebtService
 
             $payments = Payment::where('student_id', $studentId)
                 ->where('subject_id', $subjectId)
-                ->where('payment_type', 'monthly')
+                ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
+                ->whereIn('payment_type', ['monthly', 'special_monthly'])
                 ->get()
                 ->filter(fn (Payment $payment) => $this->paymentCoversMonth($payment, $date));
 
             $hasPayment = $payments->isNotEmpty();
-            $amountDue = (float) $payments->sum('amount_due');
             $amountPaid = (float) $payments->sum('amount_paid');
+            $amountDue = $this->getObligationAmount($studentId, $subjectId, $groupId);
             $remaining = max($amountDue - $amountPaid, 0);
 
             // Mois entièrement payé → aucune dette.
@@ -159,17 +163,19 @@ class UnpaidDebtService
             }
 
             // Dette déjà résolue (signalement stocké résolu) → plus aucune dette active.
-            if ($this->hasResolvedSignalement($studentId, $subjectId, $month, $date)) {
+            if ($this->hasResolvedSignalement($studentId, $subjectId, $month, $date, $groupId)) {
                 continue;
             }
 
-            $stored = $this->openStoredSignalement($studentId, $subjectId, $month, $date);
+            $stored = $this->openStoredSignalement($studentId, $subjectId, $month, $date, $groupId);
 
             $debts->push((object) [
                 'student' => $student,
                 'subject' => $subject,
                 'type' => 'monthly',
                 'period' => $month,
+                'amount_due' => $amountDue,
+                'amount_paid' => $amountPaid,
                 'amount_remaining' => $remaining,
                 'status' => $stored?->status ?? 'pending',
                 'signalement' => $stored,
@@ -183,7 +189,7 @@ class UnpaidDebtService
      * Obligations VIP : une dette par journée de présence non payée.
      * Chaque jour est indépendant ; les anciens jours non payés restent.
      */
-    private function vipDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period): Collection
+    private function vipDebts(int $studentId, int $subjectId, ?int $schoolYearId, ?string $period, ?int $groupId = null): Collection
     {
         $student = Student::find($studentId);
         $subject = Subject::find($subjectId);
@@ -194,6 +200,7 @@ class UnpaidDebtService
 
         $dates = Attendance::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
+            ->when($groupId, fn ($query) => $query->where('group_id', $groupId))
             ->whereIn('status', self::OBLIGATION_STATUSES)
             ->when($schoolYearId, fn ($query) => $query->where('school_year_id', $schoolYearId))
             ->get()
@@ -212,24 +219,30 @@ class UnpaidDebtService
         foreach ($dates as $day) {
             $date = Carbon::createFromFormat('Y-m-d', $day);
 
-            $payment = Payment::where('student_id', $studentId)
+            $payments = Payment::where('student_id', $studentId)
                 ->where('subject_id', $subjectId)
-                ->where('payment_type', 'vip')
+                ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
+                ->whereIn('payment_type', ['vip', 'vip_monthly', 'vip_per_session'])
                 ->get()
-                ->first(fn (Payment $payment) => $this->paymentCoversDay($payment, $date));
+                ->filter(fn (Payment $payment) => $this->paymentCoversDay($payment, $date));
+
+            $amountPaid = (float) $payments->sum('amount_paid');
+            $amountDue = $this->getObligationAmount($studentId, $subjectId, $groupId);
+            $remaining = max($amountDue - $amountPaid, 0);
 
             // Journée entièrement payée → aucune dette pour ce jour.
-            if ($payment && (float) $payment->remaining_amount <= 0) {
+            if ($payments->isNotEmpty() && $remaining <= 0) {
                 continue;
             }
 
             // Journée déjà résolue (signalement stocké résolu) → plus aucune dette active.
-            if ($this->hasResolvedSignalement($studentId, $subjectId, $day, $date)) {
+            if ($this->hasResolvedSignalement($studentId, $subjectId, $day, $date, $groupId)) {
                 continue;
             }
 
             $stored = PaymentSignalement::where('student_id', $studentId)
                 ->where('subject_id', $subjectId)
+                ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
                 ->where('period', $day)
                 ->whereIn('status', self::OPEN_STATUSES)
                 ->latest('id')
@@ -240,7 +253,9 @@ class UnpaidDebtService
                 'subject' => $subject,
                 'type' => 'vip',
                 'period' => $day,
-                'amount_remaining' => $payment ? (float) $payment->remaining_amount : 0,
+                'amount_due' => $amountDue,
+                'amount_paid' => $amountPaid,
+                'amount_remaining' => $remaining,
                 'status' => $stored?->status ?? 'pending',
                 'signalement' => $stored,
             ]);
@@ -253,10 +268,11 @@ class UnpaidDebtService
      * Signalement stocké ouvert pour la même dette mensuelle
      * (période "Y-m" ou nom de mois legacy).
      */
-    private function openStoredSignalement(int $studentId, int $subjectId, string $month, Carbon $date): ?PaymentSignalement
+    private function openStoredSignalement(int $studentId, int $subjectId, string $month, Carbon $date, ?int $groupId = null): ?PaymentSignalement
     {
         return PaymentSignalement::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
+            ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
             ->whereIn('period', [
                 $month,
                 $this->frenchMonth((int) $date->format('m')),
@@ -270,10 +286,11 @@ class UnpaidDebtService
      * Signalement stocké résolu pour la même dette (période "Y-m"/jour
      * ou nom de mois legacy). Une dette résolue ne réapparaît pas.
      */
-    private function hasResolvedSignalement(int $studentId, int $subjectId, string $period, Carbon $date): bool
+    private function hasResolvedSignalement(int $studentId, int $subjectId, string $period, Carbon $date, ?int $groupId = null): bool
     {
         return PaymentSignalement::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
+            ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
             ->whereIn('period', [
                 $period,
                 $this->frenchMonth((int) $date->format('m')),
@@ -406,24 +423,48 @@ class UnpaidDebtService
     }
 
     /**
-     * Type d'abonnement d'une paire élève + matière :
-     * enrollment actif → dernier paiement → monthly par défaut.
+     * Type d'abonnement d'une paire élève + matière.
      *
-     * Une présence enregistrée doit toujours générer une obligation :
-     * le défaut monthly évite qu'une dette disparaisse de la page Impayés.
+     * 1. Si groupId fourni → résoudre depuis le groupe spécifié
+     * 2. Enrollment → Group → GroupTariff (nouveau SSOT)
+     * 3. Legacy Enrollment::payment_type (fallback pour group_id=NULL)
+     * 4. Dernier paiement
+     * 5. monthly par défaut
      */
-    private function resolveTypeForPair(int $studentId, int $subjectId): string
+    private function resolveTypeForPair(int $studentId, int $subjectId, ?int $groupId = null): string
     {
-        $type = Enrollment::where('student_id', $studentId)
-            ->where('subject_id', $subjectId)
-            ->where('status', 'active')
-            ->latest('id')
-            ->value('payment_type');
+        // 1. Si groupId fourni, résoudre directement depuis le groupe
+        if ($groupId) {
+            $group = Group::find($groupId);
+            $tariff = $group?->currentTariff;
 
-        if ($type) {
-            return $type;
+            if ($tariff) {
+                return $this->computePaymentType($group, $tariff);
+            }
         }
 
+        // 2. Enrollment → Group → GroupTariff
+        $query = Enrollment::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->where('status', 'active')
+            ->with('group.currentTariff');
+
+        if ($groupId) {
+            $query->where('group_id', $groupId);
+        }
+
+        $enrollment = $query->latest('id')->first();
+
+        if ($enrollment?->group?->currentTariff) {
+            return $this->computePaymentType($enrollment->group, $enrollment->group->currentTariff);
+        }
+
+        // 3. Legacy Enrollment::payment_type
+        if ($enrollment?->payment_type) {
+            return $enrollment->payment_type;
+        }
+
+        // 4. Dernier paiement
         $type = Payment::where('student_id', $studentId)
             ->where('subject_id', $subjectId)
             ->latest('id')
@@ -433,24 +474,111 @@ class UnpaidDebtService
     }
 
     /**
+     * Montant de l'obligation (tarif du groupe) pour un élève + matière.
+     *
+     * Résout via Enrollment → Group → GroupTariff.
+     * Si groupId fourni, résout directement depuis le groupe spécifié.
+     * Fallback legacy via student_group si aucun enrollment actif.
+     */
+    private function getObligationAmount(int $studentId, int $subjectId, ?int $groupId = null): float
+    {
+        // 1. Si groupId fourni, résoudre directement depuis le groupe
+        if ($groupId) {
+            $group = Group::find($groupId);
+            $tariff = $group?->currentTariff;
+
+            return $tariff ? (float) $tariff->student_price : 0;
+        }
+
+        // 2. Résoudre via Enrollment → Group → GroupTariff
+        $query = Enrollment::where('student_id', $studentId)
+            ->where('subject_id', $subjectId)
+            ->where('status', 'active')
+            ->with('group.currentTariff');
+
+        if ($groupId) {
+            $query->where('group_id', $groupId);
+        }
+
+        $enrollment = $query->latest('id')->first();
+
+        if ($enrollment?->group?->currentTariff) {
+            return (float) $enrollment->group->currentTariff->student_price;
+        }
+
+        // 3. Fallback legacy : résoudre via student_group pivot
+        $group = Group::where('subject_id', $subjectId)
+            ->where('is_active', true)
+            ->whereHas('students', fn ($q) => $q->where('students.id', $studentId))
+            ->first();
+
+        if (! $group) {
+            return 0;
+        }
+
+        $tariff = GroupTariff::where('group_id', $group->id)
+            ->where('is_active', true)
+            ->latest('effective_from')
+            ->first();
+
+        return $tariff ? (float) $tariff->student_price : 0;
+    }
+
+    /**
      * Type d'abonnement d'un signalement stocké (enrollment en priorité).
      */
     private function typeFor(PaymentSignalement $signalement): string
     {
-        $type = Enrollment::where('student_id', $signalement->student_id)
+        // 1. Si le signalement a un group_id, résoudre depuis ce groupe
+        if ($signalement->group_id) {
+            $group = Group::find($signalement->group_id);
+            $tariff = $group?->currentTariff;
+
+            if ($tariff) {
+                return $this->computePaymentType($group, $tariff);
+            }
+        }
+
+        // 2. Enrollment → Group → GroupTariff
+        $query = Enrollment::where('student_id', $signalement->student_id)
             ->where('subject_id', $signalement->subject_id)
             ->where('status', 'active')
-            ->latest('id')
-            ->value('payment_type');
+            ->with('group.currentTariff');
 
-        if ($type) {
-            return $type;
+        if ($signalement->group_id) {
+            $query->where('group_id', $signalement->group_id);
+        }
+
+        $enrollment = $query->latest('id')->first();
+
+        if ($enrollment?->group?->currentTariff) {
+            return $this->computePaymentType($enrollment->group, $enrollment->group->currentTariff);
+        }
+
+        if ($enrollment?->payment_type) {
+            return $enrollment->payment_type;
         }
 
         return Payment::where('student_id', $signalement->student_id)
             ->where('subject_id', $signalement->subject_id)
             ->latest('id')
             ->value('payment_type') ?? 'monthly';
+    }
+
+    /**
+     * Calculer le type de paiement à partir du groupe et de son tarif.
+     */
+    private function computePaymentType(Group $group, GroupTariff $tariff): string
+    {
+        if ($group->mode === 'vip') {
+            return $tariff->billing_type === 'monthly' ? 'vip_monthly' : 'vip_per_session';
+        }
+
+        if ($group->mode === 'special') {
+            return 'special_monthly';
+        }
+
+        return 'monthly';
     }
 
     private function frenchMonth(int $month): string

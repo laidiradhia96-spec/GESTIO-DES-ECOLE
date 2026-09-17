@@ -666,7 +666,19 @@
                                     <th class="px-6 py-4
                                                text-xs font-semibold
                                                text-gray-500 uppercase">
-                                        Montant restant
+                                        Montant dû
+                                    </th>
+
+                                    <th class="px-6 py-4
+                                               text-xs font-semibold
+                                               text-gray-500 uppercase">
+                                        Payé
+                                    </th>
+
+                                    <th class="px-6 py-4
+                                               text-xs font-semibold
+                                               text-gray-500 uppercase">
+                                        Reste
                                     </th>
 
                                     <th class="px-6 py-4
@@ -796,7 +808,35 @@
                                         </td>
 
 
-                                        {{-- Montant --}}
+                                        {{-- Montant dû --}}
+                                        <td class="px-6 py-5">
+
+                                            <span class="text-sm text-gray-700">
+
+                                                {{ number_format($signalement->amount_due ?? 0, 2, ',', ' ') }}
+
+                                                DA
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {{-- Payé --}}
+                                        <td class="px-6 py-5">
+
+                                            <span class="text-sm text-green-600">
+
+                                                {{ number_format($signalement->amount_paid ?? 0, 2, ',', ' ') }}
+
+                                                DA
+
+                                            </span>
+
+                                        </td>
+
+
+                                        {{-- Reste --}}
                                         <td class="px-6 py-5">
 
                                             <span class="font-bold text-red-600">

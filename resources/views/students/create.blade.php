@@ -800,7 +800,7 @@
 
                                         <p class="text-sm text-gray-500">
 
-                                            Choisissez les matières et le type d'abonnement.
+                                            Choisissez les matières et les groupes.
 
                                         </p>
 
@@ -851,33 +851,20 @@
                             @enderror
 
 
+                            @foreach ($errors->get('enrollments.*.group_id') as $messages)
+
+                                @foreach ($messages as $message)
+
+                                    <p class="mt-3 text-sm text-red-600">
+                                        {{ $message }}
+                                    </p>
+
+                                @endforeach
+
+                            @endforeach
+
+
                             @foreach ($errors->get('enrollments.*.subject_id') as $messages)
-
-                                @foreach ($messages as $message)
-
-                                    <p class="mt-3 text-sm text-red-600">
-                                        {{ $message }}
-                                    </p>
-
-                                @endforeach
-
-                            @endforeach
-
-
-                            @foreach ($errors->get('enrollments.*.payment_type') as $messages)
-
-                                @foreach ($messages as $message)
-
-                                    <p class="mt-3 text-sm text-red-600">
-                                        {{ $message }}
-                                    </p>
-
-                                @endforeach
-
-                            @endforeach
-
-
-                            @foreach ($errors->get('enrollments.*.teacher_id') as $messages)
 
                                 @foreach ($messages as $message)
 
@@ -1010,7 +997,7 @@
                     ${
                         level
                             ? 'Chargement des matières...'
-                            : 'Sélectionner d’abord un niveau'
+                            : 'Sélectionner d\'abord un niveau'
                     }
                 </option>
             `;
@@ -1107,7 +1094,7 @@
                     select.disabled = false;
 
 
-                    // Si ancienne matière trouvée
+                    // Si ancienne matière trouvée, charger les groupes
                     if (select.value) {
 
                         const row =
@@ -1116,15 +1103,15 @@
                             );
 
 
-                        const teacherSelect =
+                        const groupSelect =
                             row.querySelector(
-                                '.teacher-select'
+                                '.group-select'
                             );
 
 
-                        loadTeachers(
+                        loadGroupsForSubject(
                             select,
-                            teacherSelect
+                            groupSelect
                         );
 
                     }
@@ -1148,7 +1135,262 @@
 
 
         // =====================================================
-        // CRÉER UNE LIGNE
+        // CHARGER LES GROUPES SELON LA MATIÈRE + NIVEAU
+        // =====================================================
+
+        function loadGroupsForSubject(
+            subjectSelect,
+            groupSelect,
+            restoreGroupId = null
+        ) {
+
+            const subjectId = subjectSelect.value;
+            const level = levelSelect.value;
+
+
+            groupSelect.disabled = true;
+
+
+            groupSelect.innerHTML = `
+                <option value="">
+                    ${
+                        subjectId
+                            ? 'Chargement des groupes...'
+                            : 'Sélectionner une matière d\'abord'
+                    }
+                </option>
+            `;
+
+
+            if (!subjectId || !level) {
+
+                return;
+
+            }
+
+
+            const url = "{{ route('groups.by-subject-level') }}"
+                + '?subject_id=' + subjectId
+                + '&level=' + level;
+
+
+            fetch(url)
+
+                .then(response => {
+
+                    if (!response.ok) {
+
+                        throw new Error(
+                            'Erreur lors du chargement'
+                        );
+
+                    }
+
+                    return response.json();
+
+                })
+
+                .then(groups => {
+
+                    groupSelect.innerHTML = `
+                        <option value="">
+                            Sélectionner un groupe
+                        </option>
+                    `;
+
+
+                    if (
+                        !Array.isArray(groups) ||
+                        groups.length === 0
+                    ) {
+
+                        groupSelect.innerHTML = `
+                            <option value="">
+                                Aucun groupe disponible
+                            </option>
+                        `;
+
+                        return;
+
+                    }
+
+
+                    groups.forEach(group => {
+
+                        const option =
+                            document.createElement('option');
+
+
+                        option.value =
+                            group.id;
+
+
+                        // Cache group data for quick retrieval
+                        option.dataset.groupData =
+                            JSON.stringify(group);
+
+
+                        const teacher = group.teacher;
+                        const teacherName = teacher
+                            ? teacher.first_name + ' ' + teacher.last_name
+                            : '—';
+
+                        const modeLabel = group.mode === 'vip'
+                            ? 'VIP'
+                            : (group.mode === 'special' ? 'Spécial' : 'Normal');
+
+                        option.textContent =
+                            group.name +
+                            ' — ' +
+                            teacherName +
+                            ' [' +
+                            modeLabel +
+                            ']';
+
+
+                        if (
+                            restoreGroupId &&
+                            String(restoreGroupId) ===
+                            String(group.id)
+                        ) {
+
+                            option.selected = true;
+
+                        }
+
+
+                        groupSelect.appendChild(option);
+
+                    });
+
+
+                    groupSelect.disabled = false;
+
+
+                    // Restaurer ancien groupe et afficher les détails
+                    if (groupSelect.value) {
+
+                        const row =
+                            groupSelect.closest(
+                                '.enrollment-row'
+                            );
+
+                        showGroupDetails(row, groupSelect.value, groups);
+
+                    }
+
+                })
+
+                .catch(error => {
+
+                    console.error(error);
+
+
+                    groupSelect.innerHTML = `
+                        <option value="">
+                            Erreur de chargement
+                        </option>
+                    `;
+
+                });
+
+        }
+
+
+        // =====================================================
+        // AFFICHER LES DÉTAILS DU GROUPE SÉLECTIONNÉ
+        // =====================================================
+
+        function showGroupDetails(row, groupId, groups) {
+
+            const group = groups
+                ? groups.find(g => String(g.id) === String(groupId))
+                : null;
+
+
+            const teacherDisplay =
+                row.querySelector('.teacher-display');
+
+            const paymentTypeDisplay =
+                row.querySelector('.payment-type-display');
+
+            const tariffDisplay =
+                row.querySelector('.tariff-display');
+
+
+            if (!group) {
+
+                teacherDisplay.textContent = '—';
+                paymentTypeDisplay.textContent = '—';
+                tariffDisplay.textContent = '—';
+                return;
+
+            }
+
+
+            // Enseignant
+            const teacher = group.teacher;
+            teacherDisplay.textContent = teacher
+                ? (teacher.gender === 'female' ? 'Mme ' : 'M. ')
+                    + teacher.first_name + ' ' + teacher.last_name
+                : '—';
+
+
+            // Tarif actif
+            const tariffs = group.tariffs || [];
+            const activeTariff = tariffs.length > 0
+                ? tariffs[0]
+                : null;
+
+
+            if (activeTariff) {
+
+                const price = parseFloat(activeTariff.student_price)
+                    .toLocaleString('fr-FR');
+
+                const billingLabel = activeTariff.billing_type === 'monthly'
+                    ? '/mois'
+                    : '/séance';
+
+                tariffDisplay.textContent =
+                    price + ' DA ' + billingLabel;
+
+
+                // Type de paiement basé sur mode + billing_type
+                if (group.mode === 'vip') {
+
+                    if (activeTariff.billing_type === 'monthly') {
+                        paymentTypeDisplay.textContent =
+                            '⭐ VIP / Paiement mensuel';
+                    } else {
+                        paymentTypeDisplay.textContent =
+                            '🎯 VIP / Paiement par séance';
+                    }
+
+                } else if (group.mode === 'special') {
+
+                    paymentTypeDisplay.textContent =
+                        '⭐ Groupe Spécial / Mensuel';
+
+                } else {
+
+                    paymentTypeDisplay.textContent =
+                        '📅 Abonnement mensuel';
+
+                }
+
+            } else {
+
+                paymentTypeDisplay.textContent = 'Aucun tarif configuré';
+                tariffDisplay.textContent = '—';
+
+            }
+
+        }
+
+
+        // =====================================================
+        // CRÉER UNE LIGNE D'INSCRIPTION
         // =====================================================
 
         function createEnrollmentRow(data = {}) {
@@ -1223,7 +1465,8 @@
                 </div>
 
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <!-- MATIÈRE + GROUPE -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
 
 
                     <!-- MATIÈRE -->
@@ -1263,7 +1506,7 @@
                     </div>
 
 
-                    <!-- ENSEIGNANT -->
+                    <!-- GROUPE -->
 
                     <div>
 
@@ -1271,14 +1514,14 @@
                                       text-[#0B2A55]
                                       dark:text-gray-200 mb-2">
 
-                            Enseignant *
+                            Groupe *
 
                         </label>
 
 
                         <select
-                            name="enrollments[${index}][teacher_id]"
-                            class="teacher-select w-full px-4 py-3.5
+                            name="enrollments[${index}][group_id]"
+                            class="group-select w-full px-4 py-3.5
                                    rounded-xl
                                    border-2 border-gray-200
                                    bg-white
@@ -1298,74 +1541,98 @@
 
                         </select>
 
+                    </div>
 
-                        <p class="teacher-warning
-                                  mt-1 text-sm text-amber-600
-                                  hidden">
-
-                            Aucun enseignant actif pour cette matière.
-
-                        </p>
+                </div>
 
 
-                        <p class="duplicate-warning
-                                  mt-1 text-sm text-red-600
-                                  hidden">
+                <!-- ENSEIGNANT + TYPE + TARIF -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-5
+                            p-4
+                            rounded-xl
+                            bg-white
+                            border border-gray-200
+                            dark:bg-gray-800
+                            dark:border-gray-600">
 
-                            Cet enseignant est déjà sélectionné pour cette matière.
+
+                    <!-- ENSEIGNANT (read-only) -->
+
+                    <div>
+
+                        <label class="block text-xs font-bold
+                                      text-gray-500
+                                      dark:text-gray-400
+                                      uppercase
+                                      tracking-wide
+                                      mb-1">
+
+                            👨‍🏫 Enseignant
+
+                        </label>
+
+                        <p class="teacher-display
+                                  text-sm font-bold
+                                  text-[#0B2A55]
+                                  dark:text-white">
+
+                            —
 
                         </p>
 
                     </div>
 
 
-                    <!-- TYPE ABONNEMENT -->
+                    <!-- TYPE D'ABONNEMENT (read-only) -->
 
                     <div>
 
-                        <label class="block text-sm font-bold
-                                      text-[#0B2A55]
-                                      dark:text-gray-200 mb-2">
+                        <label class="block text-xs font-bold
+                                      text-gray-500
+                                      dark:text-gray-400
+                                      uppercase
+                                      tracking-wide
+                                      mb-1">
 
-                            Type d'abonnement *
+                            💳 Type d'abonnement
 
                         </label>
 
+                        <p class="payment-type-display
+                                  text-sm font-bold
+                                  text-[#0B2A55]
+                                  dark:text-white">
 
-                        <select
-                            name="enrollments[${index}][payment_type]"
-                            class="payment-select w-full px-4 py-3.5
-                                   rounded-xl
-                                   border-2 border-gray-200
-                                   bg-white
-                                   outline-none
-                                   transition
-                                   focus:border-[#C89B3C]
-                                   focus:ring-4
-                                   focus:ring-[#C89B3C]/10"
-                            required>
+                            —
 
-                            <option value="">
+                        </p>
 
-                                Sélectionner
-
-                            </option>
+                    </div>
 
 
-                            <option value="monthly">
+                    <!-- TARIF (read-only) -->
 
-                                Mensuel
+                    <div>
 
-                            </option>
+                        <label class="block text-xs font-bold
+                                      text-gray-500
+                                      dark:text-gray-400
+                                      uppercase
+                                      tracking-wide
+                                      mb-1">
 
+                            💰 Tarif
 
-                            <option value="vip">
+                        </label>
 
-                                VIP
+                        <p class="tariff-display
+                                  text-sm font-bold
+                                  text-[#0B2A55]
+                                  dark:text-white">
 
-                            </option>
+                            —
 
-                        </select>
+                        </p>
 
                     </div>
 
@@ -1380,32 +1647,8 @@
                 row.querySelector('.subject-select');
 
 
-            const paymentSelect =
-                row.querySelector('.payment-select');
-
-
-            const teacherSelect =
-                row.querySelector('.teacher-select');
-
-
-            // =================================================
-            // RESTAURER ANCIENNES VALEURS
-            // =================================================
-
-            if (data.payment_type) {
-
-                paymentSelect.value =
-                    data.payment_type;
-
-            }
-
-
-            if (data.teacher_id) {
-
-                teacherSelect.dataset.restore =
-                    data.teacher_id;
-
-            }
+            const groupSelect =
+                row.querySelector('.group-select');
 
 
             // =================================================
@@ -1419,29 +1662,88 @@
 
 
             // =================================================
-            // CHANGEMENT MATIÈRE
+            // CHANGEMENT MATIÈRE → recharger les groupes
             // =================================================
 
             subjectSelect.addEventListener(
                 'change',
                 function () {
 
-                    loadTeachers(
+                    loadGroupsForSubject(
                         subjectSelect,
-                        teacherSelect
+                        groupSelect
                     );
+
+                    // Réinitialiser les détails
+                    const teacherDisplay =
+                        row.querySelector('.teacher-display');
+                    const paymentTypeDisplay =
+                        row.querySelector('.payment-type-display');
+                    const tariffDisplay =
+                        row.querySelector('.tariff-display');
+
+                    teacherDisplay.textContent = '—';
+                    paymentTypeDisplay.textContent = '—';
+                    tariffDisplay.textContent = '—';
 
                 }
             );
 
 
             // =================================================
-            // CHANGEMENT ENSEIGNANT
+            // CHANGEMENT GROUPE → afficher les détails
             // =================================================
 
-            teacherSelect.addEventListener(
+            groupSelect.addEventListener(
                 'change',
-                checkDuplicates
+                function () {
+
+                    const groupId = groupSelect.value;
+
+                    if (!groupId) {
+
+                        showGroupDetails(row, null, null);
+
+                        return;
+
+                    }
+
+
+                    // Récupérer les groupes chargés depuis le select
+                    const groups = [];
+                    const options = groupSelect.querySelectorAll('option');
+
+                    options.forEach(opt => {
+
+                        if (opt.value && opt.dataset.groupData) {
+
+                            groups.push(JSON.parse(opt.dataset.groupData));
+
+                        }
+
+                    });
+
+
+                    // Si pas de data cachée, fetch direct
+                    if (groups.length === 0) {
+
+                        const url = "{{ route('groups.by-subject-level') }}"
+                            + '?subject_id=' + subjectSelect.value
+                            + '&level=' + levelSelect.value;
+
+                        fetch(url)
+                            .then(r => r.json())
+                            .then(fetchedGroups => {
+                                showGroupDetails(row, groupId, fetchedGroups);
+                            });
+
+                    } else {
+
+                        showGroupDetails(row, groupId, groups);
+
+                    }
+
+                }
             );
 
 
@@ -1459,321 +1761,25 @@
 
                     updateNumbers();
 
-                    checkDuplicates();
-
                 }
             );
 
-        }
-
-
-        // =====================================================
-        // VÉRIFIER LES DOUBLONS MATIÈRE + ENSEIGNANT
-        // =====================================================
-
-        function checkDuplicates() {
-
-            const rows =
-                container.querySelectorAll(
-                    '.enrollment-row'
-                );
-
-            const seen = new Map();
-
-            let hasDuplicate = false;
-
-            rows.forEach(row => {
-
-                const subjectSelect =
-                    row.querySelector(
-                        '.subject-select'
-                    );
-
-                const teacherSelect =
-                    row.querySelector(
-                        '.teacher-select'
-                    );
-
-                const warning =
-                    row.querySelector(
-                        '.duplicate-warning'
-                    );
-
-                warning.classList.add('hidden');
-
-                row.classList.remove(
-                    'border-red-400'
-                );
-
-                const subjectId =
-                    subjectSelect.value;
-
-                const teacherId =
-                    teacherSelect.value;
-
-                if (!subjectId || !teacherId) {
-
-                    return;
-
-                }
-
-                const key =
-                    subjectId + '-' + teacherId;
-
-                if (seen.has(key)) {
-
-                    hasDuplicate = true;
-
-                    const previousRow =
-                        seen.get(key);
-
-                    previousRow.classList.add(
-                        'border-red-400'
-                    );
-
-                    previousRow.querySelector(
-                        '.duplicate-warning'
-                    ).classList.remove('hidden');
-
-                    row.classList.add(
-                        'border-red-400'
-                    );
-
-                    warning.classList.remove(
-                        'hidden'
-                    );
-
-                } else {
-
-                    seen.set(key, row);
-
-                }
-
-            });
-
-            return !hasDuplicate;
-
-        }
-
-
-        // =====================================================
-        // CHARGER LES ENSEIGNANTS
-        // =====================================================
-
-        function loadTeachers(
-            subjectSelect,
-            teacherSelect
-        ) {
-
-            const subjectId =
-                subjectSelect.value;
-
-
-            const warning =
-                teacherSelect
-                    .parentElement
-                    .querySelector('.teacher-warning');
-
-
-            teacherSelect.disabled = true;
-
-            warning.classList.add('hidden');
-
-
-            if (!subjectId) {
-
-                teacherSelect.innerHTML = `
-                    <option value="">
-                        Sélectionner une matière d'abord
-                    </option>
-                `;
-
-                return;
-
-            }
-
-
-            teacherSelect.innerHTML = `
-                <option value="">
-                    Chargement...
-                </option>
-            `;
-
-
-            const url =
-                "{{ route('students.subjects.teachers', ['subject' => '__SUBJECT_ID__', 'level' => '__LEVEL__']) }}"
-                    .replace(
-                        '__SUBJECT_ID__',
-                        subjectId
-                    )
-                    .replace(
-                        '__LEVEL__',
-                        levelSelect.value
-                    );
-
-
-            fetch(url)
-
-                .then(response => {
-
-                    if (!response.ok) {
-
-                        throw new Error(
-                            'Erreur lors du chargement'
-                        );
-
-                    }
-
-                    return response.json();
-
-                })
-
-                .then(teachers => {
-
-                    if (
-                        !Array.isArray(teachers) ||
-                        teachers.length === 0
-                    ) {
-
-                        teacherSelect.innerHTML = `
-                            <option value="">
-                                Aucun enseignant disponible
-                            </option>
-                        `;
-
-                        warning.classList.remove('hidden');
-
-                        return;
-
-                    }
-
-
-                    teacherSelect.innerHTML = `
-                        <option value="">
-                            Sélectionner un enseignant
-                        </option>
-                    `;
-
-
-                    teachers.forEach(teacher => {
-
-                        const option =
-                            document.createElement('option');
-
-
-                        option.value =
-                            teacher.id;
-
-
-                        option.textContent =
-                            teacher.first_name +
-                            ' ' +
-                            teacher.last_name;
-
-
-                        teacherSelect.appendChild(
-                            option
-                        );
-
+            // Restaurer les détails si ancien groupe
+            if (data.group_id) {
+
+                const url = "{{ route('groups.by-subject-level') }}"
+                    + '?subject_id=' + (data.subject_id || '')
+                    + '&level=' + levelSelect.value;
+
+                fetch(url)
+                    .then(r => r.json())
+                    .then(groups => {
+                        showGroupDetails(row, data.group_id, groups);
                     });
 
-
-                    teacherSelect.disabled = false;
-
-
-                    const restore =
-                        teacherSelect.dataset.restore;
-
-
-                    if (restore) {
-
-                        teacherSelect.value =
-                            restore;
-
-                        delete teacherSelect.dataset.restore;
-
-                    }
-
-
-                    checkDuplicates();
-
-                })
-
-                .catch(error => {
-
-                    console.error(error);
-
-
-                    teacherSelect.innerHTML = `
-                        <option value="">
-                            Erreur de chargement
-                        </option>
-                    `;
-
-                });
+            }
 
         }
-
-
-        // =====================================================
-        // CHANGEMENT DU NIVEAU
-        // =====================================================
-
-        levelSelect.addEventListener(
-            'change',
-            function () {
-
-                const selects =
-                    container.querySelectorAll(
-                        '.subject-select'
-                    );
-
-
-                selects.forEach(select => {
-
-                    const row =
-                        select.closest(
-                            '.enrollment-row'
-                        );
-
-
-                    const teacherSelect =
-                        row.querySelector(
-                            '.teacher-select'
-                        );
-
-
-                    // Reset enseignant
-
-                    teacherSelect.value = '';
-
-                    teacherSelect.disabled = true;
-
-                    teacherSelect.innerHTML = `
-                        <option value="">
-                            Sélectionner une matière d'abord
-                        </option>
-                    `;
-
-
-                    teacherSelect
-                        .parentElement
-                        .querySelector(
-                            '.teacher-warning'
-                        )
-                        .classList.add('hidden');
-
-
-                    // Recharger les matières
-
-                    loadSubjectsForLevel(
-                        select
-                    );
-
-                });
-
-            }
-        );
 
 
         // =====================================================
@@ -1788,7 +1794,7 @@
                 if (!levelSelect.value) {
 
                     alert(
-                        'Veuillez sélectionner le niveau scolaire avant d’ajouter une matière.'
+                        'Veuillez sélectionner le niveau scolaire avant d\'ajouter une matière.'
                     );
 
                     levelSelect.focus();
@@ -1860,6 +1866,71 @@
 
 
         // =====================================================
+        // CHANGEMENT DU NIVEAU → recharger toutes les matières
+        // =====================================================
+
+        levelSelect.addEventListener(
+            'change',
+            function () {
+
+                const selects =
+                    container.querySelectorAll(
+                        '.subject-select'
+                    );
+
+
+                selects.forEach(select => {
+
+                    const row =
+                        select.closest(
+                            '.enrollment-row'
+                        );
+
+
+                    const groupSelect =
+                        row.querySelector(
+                            '.group-select'
+                        );
+
+
+                    // Reset groupe
+                    groupSelect.value = '';
+
+                    groupSelect.disabled = true;
+
+                    groupSelect.innerHTML = `
+                        <option value="">
+                            Sélectionner une matière d'abord
+                        </option>
+                    `;
+
+
+                    // Reset détails
+                    const teacherDisplay =
+                        row.querySelector('.teacher-display');
+                    const paymentTypeDisplay =
+                        row.querySelector('.payment-type-display');
+                    const tariffDisplay =
+                        row.querySelector('.tariff-display');
+
+                    teacherDisplay.textContent = '—';
+                    paymentTypeDisplay.textContent = '—';
+                    tariffDisplay.textContent = '—';
+
+
+                    // Recharger les matières
+
+                    loadSubjectsForLevel(
+                        select
+                    );
+
+                });
+
+            }
+        );
+
+
+        // =====================================================
         // RESTAURER OLD()
         // =====================================================
 
@@ -1888,40 +1959,6 @@
 
         }
 
-
-        // =====================================================
-        // BLOQUER L'ENVOI SI DOUBLON
-        // =====================================================
-
-        const enrollmentForm =
-            container.closest('form');
-
-
-        if (enrollmentForm) {
-
-            enrollmentForm.addEventListener(
-                'submit',
-                function (event) {
-
-                    if (!checkDuplicates()) {
-
-                        event.preventDefault();
-
-                        enrollmentForm
-                            .querySelector(
-                                '.enrollment-row.border-red-400'
-                            )
-                            ?.querySelector(
-                                '.subject-select'
-                            )
-                            ?.focus();
-
-                    }
-
-                }
-            );
-
-        }
 
     });
 

@@ -46,12 +46,9 @@ return new class extends Migration
 
             Schema::table('payments', function (Blueprint $table) {
 
-                $table->enum('payment_type', [
-                    'monthly',
-                    'vip',
-                ])
-                    ->default('monthly')
-                    ->after('period');
+                $table->string('payment_type', 50)
+                    ->nullable()
+                    ->default('monthly');
             });
         }
 
@@ -93,13 +90,14 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         */
 
-        Schema::table('payments', function (Blueprint $table) {
-
-            $table->foreign('subject_id')
-                ->references('id')
-                ->on('subjects')
-                ->nullOnDelete();
-        });
+        if (Schema::hasColumn('payments', 'subject_id')) {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->foreign('subject_id')
+                    ->references('id')
+                    ->on('subjects')
+                    ->nullOnDelete();
+            });
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -107,13 +105,14 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         */
 
-        Schema::table('payment_signalements', function (Blueprint $table) {
-
-            $table->foreign('subject_id')
-                ->references('id')
-                ->on('subjects')
-                ->nullOnDelete();
-        });
+        if (Schema::hasColumn('payment_signalements', 'subject_id')) {
+            Schema::table('payment_signalements', function (Blueprint $table) {
+                $table->foreign('subject_id')
+                    ->references('id')
+                    ->on('subjects')
+                    ->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void
@@ -151,10 +150,11 @@ return new class extends Migration
         |--------------------------------------------------------------------------
         */
 
-        Schema::table('payments', function (Blueprint $table) {
-
-            $table->dropForeign(['subject_id']);
-        });
+        if (Schema::hasColumn('payments', 'subject_id')) {
+            Schema::table('payments', function (Blueprint $table) {
+                $table->dropForeign(['subject_id']);
+            });
+        }
 
         if (Schema::hasColumn('payments', 'payment_type')) {
 

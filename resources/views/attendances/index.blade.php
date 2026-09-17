@@ -14,14 +14,26 @@
                 </p>
             </div>
 
-            <a href="{{ route('attendances.create') }}"
-               class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl
-                      text-white font-semibold shadow-md hover:opacity-90 transition"
-               style="background-color: #0B2A55;">
+            <div class="flex items-center gap-3">
 
-                + Enregistrer une présence
+                <a href="{{ route('attendances.archive') }}"
+                   class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl
+                          bg-[#C89B3C] text-white font-semibold shadow-md hover:opacity-90 transition">
 
-            </a>
+                    📋 Archive
+
+                </a>
+
+                <a href="{{ route('attendances.create') }}"
+                   class="inline-flex items-center justify-center px-5 py-2.5 rounded-xl
+                          text-white font-semibold shadow-md hover:opacity-90 transition"
+                   style="background-color: #0B2A55;">
+
+                    + Enregistrer une présence
+
+                </a>
+
+            </div>
 
         </div>
 
@@ -76,26 +88,23 @@
 
                 <form method="GET" action="{{ route('attendances.index') }}">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-5">
 
 
-                        {{-- Recherche élève --}}
+                        {{-- Recherche enseignant --}}
                         <div>
 
                             <label
-                                for="student"
+                                for="teacher_id"
                                 class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
 
-                                Élève
+                                Enseignant
 
                             </label>
 
-                            <input
-                                type="text"
-                                id="student"
-                                name="student"
-                                value="{{ request('student') }}"
-                                placeholder="Nom ou prénom..."
+                            <select
+                                id="teacher_id"
+                                name="teacher_id"
                                 class="w-full rounded-xl border-gray-300
                                        dark:border-gray-600
                                        dark:bg-gray-700
@@ -103,6 +112,24 @@
                                        focus:border-[#0B2A55]
                                        focus:ring-[#0B2A55]"
                             >
+
+                                <option value="">
+                                    Tous les enseignants
+                                </option>
+
+                                @foreach ($teachers as $teacher)
+
+                                    <option
+                                        value="{{ $teacher->id }}"
+                                        {{ request('teacher_id') == $teacher->id ? 'selected' : '' }}>
+
+                                        {{ $teacher->first_name }} {{ $teacher->last_name }}
+
+                                    </option>
+
+                                @endforeach
+
+                            </select>
 
                         </div>
 
@@ -167,6 +194,49 @@
                                         {{ request('subject_id') == $subject->id ? 'selected' : '' }}>
 
                                         {{ $subject->name }}
+
+                                    </option>
+
+                                @endforeach
+
+                            </select>
+
+                        </div>
+
+
+                        {{-- Groupe --}}
+                        <div>
+
+                            <label
+                                for="group_id"
+                                class="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+
+                                Groupe
+
+                            </label>
+
+                            <select
+                                id="group_id"
+                                name="group_id"
+                                class="w-full rounded-xl border-gray-300
+                                       dark:border-gray-600
+                                       dark:bg-gray-700
+                                       dark:text-white
+                                       focus:border-[#0B2A55]
+                                       focus:ring-[#0B2A55]"
+                            >
+
+                                <option value="">
+                                    Tous les groupes
+                                </option>
+
+                                @foreach ($groups as $group)
+
+                                    <option
+                                        value="{{ $group->id }}"
+                                        {{ request('group_id') == $group->id ? 'selected' : '' }}>
+
+                                        {{ $group->name }} — {{ $group->level }}
 
                                     </option>
 
@@ -357,7 +427,7 @@
 
                                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
 
-                                    Consultez, modifiez ou supprimez les présences.
+                            Consultez, modifiez ou supprimez les présences.
 
                                 </p>
 
@@ -374,7 +444,7 @@
                                    shadow-sm whitespace-nowrap"
                             style="background-color: #C89B3C; color: white;">
 
-                            {{ $attendances->total() }} enregistrements
+                            {{ $sessions->total() }} séances
 
                         </div>
 
@@ -383,7 +453,7 @@
                 </div>
 
 
-                @if ($attendances->count() > 0)
+                @if ($sessions->count() > 0)
 
 
                     <div class="overflow-x-auto">
@@ -399,7 +469,7 @@
                                     </th>
 
                                     <th class="px-6 py-4 text-left">
-                                        Élève
+                                        Enseignant
                                     </th>
 
                                     <th class="px-6 py-4 text-left">
@@ -407,7 +477,7 @@
                                     </th>
 
                                     <th class="px-6 py-4 text-left">
-                                        Enseignant
+                                        Groupe
                                     </th>
 
                                     <th class="px-6 py-4 text-center">
@@ -415,7 +485,7 @@
                                     </th>
 
                                     <th class="px-6 py-4 text-center">
-                                        Statut
+                                        Élèves
                                     </th>
 
                                     <th class="px-6 py-4 text-center">
@@ -430,7 +500,7 @@
                             <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
 
 
-                                @foreach ($attendances as $attendance)
+                                @foreach ($sessions as $session)
 
                                     <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
 
@@ -438,18 +508,22 @@
                                         {{-- Numéro --}}
                                         <td class="px-6 py-4 text-sm text-gray-500">
 
-                                            {{ $loop->iteration + ($attendances->currentPage() - 1) * $attendances->perPage() }}
+                                            {{ $loop->iteration + ($sessions->currentPage() - 1) * $sessions->perPage() }}
 
                                         </td>
 
 
-                                        {{-- Élève --}}
+                                        {{-- Enseignant --}}
                                         <td class="px-6 py-4">
 
                                             <div class="font-semibold text-gray-800 dark:text-gray-100">
 
-                                                {{ $attendance->student->first_name }}
-                                                {{ $attendance->student->last_name }}
+                                                @if ($session->teacher)
+                                                    {{ $session->teacher->first_name }}
+                                                    {{ $session->teacher->last_name }}
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
 
                                             </div>
 
@@ -461,30 +535,32 @@
 
                                             <span class="text-gray-700 dark:text-gray-300">
 
-                                                {{ $attendance->subject->name }}
+                                                @if ($session->subject)
+                                                    {{ $session->subject->name }}
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
 
                                             </span>
 
                                         </td>
 
 
-                                        {{-- Enseignant --}}
+                                        {{-- Groupe --}}
                                         <td class="px-6 py-4">
 
-                                            @if ($attendance->teacher)
+                                            @if ($session->group)
 
-                                                <span class="text-gray-700 dark:text-gray-300">
-
-                                                    {{ $attendance->teacher->first_name }}
-                                                    {{ $attendance->teacher->last_name }}
-
+                                                <span class="inline-flex items-center px-2.5 py-0.5
+                                                             rounded-full text-xs font-bold
+                                                             bg-green-100 text-green-800">
+                                                    {{ $session->group->name }}
+                                                    <span class="text-green-600 ml-1">— {{ $session->group->level }}</span>
                                                 </span>
 
                                             @else
 
-                                                <span class="text-gray-400">
-                                                    —
-                                                </span>
+                                                <span class="text-gray-400">—</span>
 
                                             @endif
 
@@ -496,69 +572,24 @@
 
                                             <span class="text-gray-700 dark:text-gray-300">
 
-                                                {{ $attendance->date->format('d/m/Y') }}
+                                                {{ \Carbon\Carbon::parse($session->date)->format('d/m/Y') }}
 
                                             </span>
 
                                         </td>
 
 
-                                        {{-- Statut --}}
+                                        {{-- Élèves --}}
                                         <td class="px-6 py-4 text-center">
 
+                                            <span class="inline-flex items-center px-3 py-1
+                                                         rounded-full text-xs font-bold
+                                                         bg-[#0B2A55] text-white">
 
-                                            @if ($attendance->status === 'present')
+                                                {{ $session->student_count }}
+                                                {{ $session->student_count > 1 ? 'élèves' : 'élève' }}
 
-                                                <span
-                                                    class="inline-flex items-center
-                                                           px-3 py-1 rounded-full
-                                                           text-xs font-semibold
-                                                           bg-green-100 text-green-700">
-
-                                                    🟢 Présent
-
-                                                </span>
-
-
-                                            @elseif ($attendance->status === 'absent')
-
-                                                <span
-                                                    class="inline-flex items-center
-                                                           px-3 py-1 rounded-full
-                                                           text-xs font-semibold
-                                                           bg-red-100 text-red-700">
-
-                                                    🔴 Absent
-
-                                                </span>
-
-
-                                            @elseif ($attendance->status === 'late')
-
-                                                <span
-                                                    class="inline-flex items-center
-                                                           px-3 py-1 rounded-full
-                                                           text-xs font-semibold
-                                                           bg-yellow-100 text-yellow-700">
-
-                                                    🟠 Retard
-
-                                                </span>
-
-
-                                            @elseif ($attendance->status === 'justified')
-
-                                                <span
-                                                    class="inline-flex items-center
-                                                           px-3 py-1 rounded-full
-                                                           text-xs font-semibold
-                                                           bg-blue-100 text-blue-700">
-
-                                                    🔵 Justifié
-
-                                                </span>
-
-                                            @endif
+                                            </span>
 
                                         </td>
 
@@ -569,7 +600,7 @@
                                             <div class="flex items-center justify-center gap-2">
 
                                                 <a
-                                                    href="{{ route('attendances.show', $attendance) }}"
+                                                    href="{{ route('attendances.show', $session->latest_id) }}"
                                                     class="inline-flex items-center
                                                            px-3 py-2 rounded-lg
                                                            text-white text-sm
@@ -582,29 +613,20 @@
 
                                                 </a>
 
-                                                <form
-                                                    method="POST"
-                                                    action="{{ route('attendances.destroy', $attendance) }}"
-                                                    onsubmit="return confirm('Êtes-vous sûr de vouloir supprimer cette présence ?');"
-                                                >
+                                                <a
+                                                    href="{{ route('attendances.print', $session->latest_id) }}"
+                                                    target="_blank"
+                                                    class="inline-flex items-center
+                                                           px-3 py-2 rounded-lg
+                                                           text-white text-sm
+                                                           font-semibold
+                                                           hover:opacity-90
+                                                           transition"
+                                                    style="background-color: #2563EB;">
 
-                                                    @csrf
-                                                    @method('DELETE')
+                                                    🖨️ Imprimer
 
-                                                    <button
-                                                        type="submit"
-                                                        class="inline-flex items-center
-                                                               px-3 py-2 rounded-lg
-                                                               bg-red-600 text-white text-sm
-                                                               font-semibold
-                                                               hover:bg-red-700
-                                                               transition">
-
-                                                        🗑️ Supprimer
-
-                                                    </button>
-
-                                                </form>
+                                                </a>
 
                                             </div>
 
@@ -624,7 +646,7 @@
                     {{-- Pagination --}}
                     <div class="p-6 border-t border-gray-200 dark:border-gray-700">
 
-                        {{ $attendances->withQueryString()->links() }}
+                        {{ $sessions->withQueryString()->links() }}
 
                     </div>
 
@@ -641,13 +663,13 @@
 
                         <h3 class="text-lg font-bold text-gray-700 dark:text-gray-200">
 
-                            Aucune présence trouvée
+                            Aucune séance trouvée
 
                         </h3>
 
                         <p class="text-sm text-gray-500 mt-2">
 
-                            Aucun enregistrement ne correspond aux critères sélectionnés.
+                            Aucune séance ne correspond aux critères sélectionnés.
 
                         </p>
 

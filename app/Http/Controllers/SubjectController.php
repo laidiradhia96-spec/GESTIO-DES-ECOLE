@@ -33,9 +33,42 @@ class SubjectController extends Controller
             ->whereHas('enrollments', fn ($e) => $e->where('school_year_id', $schoolYearId))
             ->orWhereHas('classSessions', fn ($c) => $c->where('school_year_id', $schoolYearId))));
 
-        $subjects = $subjects->get();
+        // Recherche serveur (nom, code, description)
+        if ($request->filled('search')) {
 
-        return view('subjects.index', compact('subjects', 'schoolYears', 'schoolYearId'));
+            $search = trim($request->search);
+
+            $subjects->where(function ($q) use ($search) {
+
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Statistiques (scope de la requête filtrée, avant pagination)
+        $totalSubjects = (clone $subjects)->count();
+
+        $activeSubjects = $totalSubjects;
+
+        $inactiveSubjects = 0;
+
+        $subjects = $subjects
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
+
+        return view(
+            'subjects.index',
+            compact(
+                'subjects',
+                'schoolYears',
+                'schoolYearId',
+                'totalSubjects',
+                'activeSubjects',
+                'inactiveSubjects'
+            )
+        );
     }
 
     /**

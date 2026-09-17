@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Group;
 use App\Models\PaymentSignalement;
 use App\Models\SchoolYear;
 use App\Models\Subject;
@@ -308,13 +309,14 @@ class PaymentSignalementController extends Controller
     }
 
     /**
-     * Validation de l'identité d'une dette (élève + matière + période).
+     * Validation de l'identité d'une dette (élève + matière + groupe + période).
      */
     private function validateDebtIdentity(Request $request): array
     {
         return $request->validate([
             'student_id' => ['required', 'integer', 'exists:students,id'],
             'subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'group_id' => ['nullable', 'integer', 'exists:groups,id'],
             'period' => ['required', 'string', 'max:20'],
             'amount_remaining' => ['nullable', 'numeric', 'min:0'],
         ]);
@@ -323,8 +325,13 @@ class PaymentSignalementController extends Controller
     /**
      * Signalement stocké correspondant à une dette, sinon création.
      *
-     * Recherche par (student_id + subject_id + period), avec l'alias
-     * legacy nom-de-mois français, pour ne jamais créer de doublon.
+     * Recherche par (student_id + subject_id + [group_id] + period),
+     * avec l'alias legacy nom-de-mois français, pour ne jamais créer
+     * de doublon.
+     *
+     * Le group_id est conservé lorsqu'il est fourni : un même élève +
+     * matière peut avoir des dettes dans des groupes différents
+     * (ex. Normal vs VIP).
      */
     private function resolveSignalementForDebt(array $data): PaymentSignalement
     {
@@ -334,8 +341,11 @@ class PaymentSignalementController extends Controller
             $periods[] = $this->monthName((int) substr($data['period'], 5, 2));
         }
 
+        $groupId = $data['group_id'] ?? null;
+
         $signalement = PaymentSignalement::where('student_id', $data['student_id'])
             ->where('subject_id', $data['subject_id'])
+            ->when($groupId, fn ($q) => $q->where('group_id', $groupId))
             ->whereIn('period', $periods)
             ->whereIn('status', ['pending', 'sent', 'resolved'])
             ->latest('id')
@@ -347,15 +357,20 @@ class PaymentSignalementController extends Controller
 
         $signalementDate = now()->toDateString();
 
+        $schoolYearId = $groupId
+            ? Group::find($groupId)?->school_year_id
+            : SchoolYear::forPeriod($data['period'], $signalementDate, $signalementDate)?->id;
+
         return PaymentSignalement::create([
             'student_id' => $data['student_id'],
             'subject_id' => $data['subject_id'],
+            'group_id' => $groupId,
             'period' => $data['period'],
             'amount_remaining' => $data['amount_remaining'] ?? 0,
             'status' => 'pending',
             'signalement_date' => $signalementDate,
             'note' => 'Dette calculée traitée manuellement.',
-            'school_year_id' => SchoolYear::forPeriod($data['period'], $signalementDate, $signalementDate)?->id,
+            'school_year_id' => $schoolYearId,
         ]);
     }
 

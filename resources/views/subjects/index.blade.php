@@ -198,7 +198,7 @@
                         </p>
 
                         <p class="text-3xl font-extrabold text-[#0B2A55] mt-1">
-                            {{ $subjects->count() }}
+                            {{ $totalSubjects }}
                         </p>
 
                     </div>
@@ -225,9 +225,7 @@
 
                         <p class="text-3xl font-extrabold text-green-600 mt-1">
 
-                            {{ $subjects->filter(function ($subject) {
-                                return $subject->is_active ?? true;
-                            })->count() }}
+                            {{ $activeSubjects }}
 
                         </p>
 
@@ -255,9 +253,7 @@
 
                         <p class="text-3xl font-extrabold text-red-500 mt-1">
 
-                            {{ $subjects->count() - $subjects->filter(function ($subject) {
-                                return $subject->is_active ?? true;
-                            })->count() }}
+                            {{ $inactiveSubjects }}
 
                         </p>
 
@@ -298,14 +294,22 @@
 
 
                     {{-- SEARCH --}}
-                    <div class="relative w-full lg:w-80">
+                    <form method="GET"
+                          action="{{ route('subjects.index') }}"
+                          id="subjectSearchForm"
+                          class="relative w-full lg:w-80">
+
+                        <input type="hidden"
+                               name="school_year_id"
+                               value="{{ $schoolYearId }}">
 
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                             🔎
                         </span>
 
                         <input type="text"
-                               id="subjectSearch"
+                               name="search"
+                               value="{{ request('search') }}"
                                placeholder="Rechercher une matière..."
                                class="w-full pl-10 pr-4 py-3
                                       rounded-xl
@@ -318,7 +322,7 @@
                                       outline-none
                                       text-sm">
 
-                    </div>
+                    </form>
 
                 </div>
 
@@ -660,15 +664,11 @@
 
 
             {{-- PAGINATION --}}
-            @if(method_exists($subjects, 'links'))
+            <div class="px-6 py-5 border-t border-gray-100">
 
-                <div class="px-6 py-5 border-t border-gray-100">
+                {{ $subjects->links() }}
 
-                    {{ $subjects->links() }}
-
-                </div>
-
-            @endif
+            </div>
 
 
         </div>
@@ -683,28 +683,27 @@
 
     document.addEventListener('DOMContentLoaded', function () {
 
-        const searchInput = document.getElementById('subjectSearch');
+        const searchForm = document.getElementById('subjectSearchForm');
 
-        const rows = document.querySelectorAll('.subject-row');
+        const searchInput = searchForm ? searchForm.querySelector('input[name="search"]') : null;
 
 
-        if (!searchInput) {
+        if (!searchForm || !searchInput) {
             return;
         }
 
 
+        let debounceTimer;
+
         searchInput.addEventListener('input', function () {
 
-            const search = this.value.toLowerCase().trim();
+            clearTimeout(debounceTimer);
 
+            debounceTimer = setTimeout(function () {
 
-            rows.forEach(function (row) {
+                searchForm.submit();
 
-                const text = row.innerText.toLowerCase();
-
-                row.style.display = text.includes(search) ? '' : 'none';
-
-            });
+            }, 250);
 
         });
 

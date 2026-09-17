@@ -98,56 +98,30 @@
                 @method('PUT')
 
 
-                {{-- ===================================================== --}}
-                {{-- ELEVE --}}
-                {{-- ===================================================== --}}
-
+                {{-- ÉLÈVE (read-only) --}}
                 <div class="mb-6">
 
-                    <label for="student_id"
-                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
+                    <label class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                        Élève <span class="text-red-500">*</span>
+                        Élève
 
                     </label>
 
-                    <select id="student_id"
-                            name="student_id"
-                            disabled
-                            required
-                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-100 outline-none cursor-not-allowed">
+                    <input type="text"
+                           value="{{ $payment->student->last_name }} {{ $payment->student->first_name }}"
+                           readonly
+                           class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-100 outline-none cursor-not-allowed text-gray-700">
 
-                        @foreach($students as $student)
-
-                            <option value="{{ $student->id }}"
-                                {{ $payment->student_id == $student->id ? 'selected' : '' }}>
-
-                                {{ $student->last_name }}
-                                {{ $student->first_name }}
-
-                                @if($student->level)
-                                    — {{ $student->level }}
-                                @endif
-
-                            </option>
-
-                        @endforeach
-
-                    </select>
+                    <input type="hidden" name="student_id" value="{{ $payment->student_id }}">
 
                     <p class="text-xs text-gray-500 mt-2">
-
                         ℹ️ L'élève d'un paiement ne peut pas être modifié.
-
                     </p>
 
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- MATIERE --}}
-                {{-- ===================================================== --}}
-
+                {{-- MATIÈRE --}}
                 <div class="mb-6">
 
                     <label for="subject_id"
@@ -186,10 +160,36 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- TYPE DE PAIEMENT --}}
-                {{-- ===================================================== --}}
+                {{-- GROUPE --}}
+                <div class="mb-6">
 
+                    <label for="group_id"
+                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
+
+                        Groupe <span class="text-red-500">*</span>
+
+                    </label>
+
+                    <select id="group_id"
+                            name="group_id"
+                            required
+                            disabled
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+
+                        <option value="{{ $payment->group_id }}">
+                            {{ $payment->group->name ?? '—' }} — {{ $payment->group->mode ?? '' }}
+                        </option>
+
+                    </select>
+
+                    <div id="group-info" class="hidden mt-3 p-3 rounded-xl bg-green-50 border border-green-200">
+                        <p class="text-sm text-green-700 font-semibold" id="group-info-text"></p>
+                    </div>
+
+                </div>
+
+
+                {{-- TYPE D'ABONNEMENT --}}
                 <div class="mb-6">
 
                     <label for="payment_type"
@@ -199,7 +199,6 @@
 
                     </label>
 
-
                     <select id="payment_type"
                             name="payment_type"
                             required
@@ -207,16 +206,22 @@
 
                         <option value="monthly"
                             {{ old('payment_type', $payment->payment_type) == 'monthly' ? 'selected' : '' }}>
-
                             📅 Abonnement mensuel
-
                         </option>
 
-                        <option value="vip"
-                            {{ old('payment_type', $payment->payment_type) == 'vip' ? 'selected' : '' }}>
+                        <option value="special_monthly"
+                            {{ old('payment_type', $payment->payment_type) == 'special_monthly' ? 'selected' : '' }}>
+                            ⭐ Groupe Spécial / Mensuel
+                        </option>
 
-                            ⭐ VIP / Paiement journalier
+                        <option value="vip_monthly"
+                            {{ old('payment_type', $payment->payment_type) == 'vip_monthly' ? 'selected' : '' }}>
+                            ⭐ VIP / Paiement mensuel
+                        </option>
 
+                        <option value="vip_per_session"
+                            {{ old('payment_type', $payment->payment_type) == 'vip_per_session' ? 'selected' : '' }}>
+                            🎯 VIP / Paiement par séance
                         </option>
 
                     </select>
@@ -224,11 +229,8 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- PERIODE MENSUELLE --}}
-                {{-- ===================================================== --}}
-
-                <div id="monthlyPeriod" class="mb-6">
+                {{-- MOIS (si mensuel) --}}
+                <div id="monthlyPeriod" class="mb-6 {{ in_array($payment->payment_type, ['monthly', 'special_monthly', 'vip_monthly']) ? '' : 'hidden' }}">
 
                     <label for="period_month"
                            class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
@@ -245,19 +247,9 @@
                         </option>
 
                         @foreach([
-    'Janvier',
-    'Février',
-    'Mars',
-    'Avril',
-    'Mai',
-    'Juin',
-    'Juillet',
-    'Août',
-    'Septembre',
-    'Octobre',
-    'Novembre',
-    'Décembre'
-] as $month)
+                            'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                        ] as $month)
 
                             <option value="{{ $month }}"
                                 {{ old('period', $payment->period) == $month ? 'selected' : '' }}>
@@ -273,47 +265,14 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- PERIODE VIP --}}
-                {{-- ===================================================== --}}
-
-                <div id="vipPeriod" class="mb-6 hidden">
-
-                    <label for="period_vip"
-                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
-
-                        Date du paiement VIP <span class="text-red-500">*</span>
-
-                    </label>
-
-                    <input type="date"
-                           id="period_vip"
-                           class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]"
-                           value="{{ old('period', $payment->period) && preg_match('/^\d{4}-\d{2}-\d{2}$/', old('period', $payment->period)) ? old('period', $payment->period) : now()->format('Y-m-d') }}">
-
-                    <p class="text-xs text-gray-500 mt-2">
-
-                        ⭐ Le paiement VIP concerne uniquement cette journée.
-
-                    </p>
-
-                </div>
-
-
-                {{-- Champ caché réel --}}
                 <input type="hidden"
                        name="period"
                        id="period"
                        value="{{ old('period', $payment->period) }}">
 
 
-                {{-- ===================================================== --}}
-                {{-- DATE / HEURE DU PAIEMENT --}}
-                {{-- ===================================================== --}}
-
+                {{-- DATE / HEURE --}}
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
-
-                    {{-- DATE DU PAIEMENT --}}
 
                     <div>
 
@@ -333,8 +292,6 @@
 
                     </div>
 
-
-                    {{-- HEURE DU PAIEMENT --}}
 
                     <div>
 
@@ -356,83 +313,73 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- MONTANTS --}}
-                {{-- ===================================================== --}}
+                {{-- MONTANT DEMANDE (AUTOMATIQUE) --}}
+                <div class="mb-6">
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                    <label class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
+                        Montant demandé
 
-                    {{-- MONTANT DEMANDE --}}
+                    </label>
 
-                    <div>
+                    <div class="relative">
 
-                        <label for="amount_due"
-                               class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
+                        <input type="text"
+                               id="amount_due_display"
+                               readonly
+                               value="{{ number_format($payment->amount_due, 2, '.', '') }}"
+                               class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-100 outline-none text-gray-700 font-bold cursor-not-allowed">
 
-                            Montant demandé <span class="text-red-500">*</span>
-
-                        </label>
-
-                        <div class="relative">
-
-                            <input type="number"
-                                   id="amount_due"
-                                   name="amount_due"
-                                   value="{{ old('amount_due', $payment->amount_due) }}"
-                                   min="0"
-                                   step="0.01"
-                                   required
-                                   placeholder="Ex : 3000"
-                                   class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
-
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                DA
-                            </span>
-
-                        </div>
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                            DA
+                        </span>
 
                     </div>
 
+                    <input type="hidden" name="amount_due" id="amount_due" value="{{ $payment->amount_due }}">
 
-                    {{-- MONTANT PAYE --}}
+                    @if($payment->group)
+                        <p class="text-xs text-gray-500 mt-2">
+                            Tarif du groupe: {{ number_format($payment->amount_due, 0, ',', ' ') }} DA
+                            — {{ $payment->group->mode }}
+                        </p>
+                    @endif
 
-                    <div>
+                </div>
 
-                        <label for="amount_paid"
-                               class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                            Montant payé <span class="text-red-500">*</span>
+                {{-- MONTANT PAYÉ --}}
+                <div class="mb-6">
 
-                        </label>
+                    <label for="amount_paid"
+                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                        <div class="relative">
+                        Montant payé <span class="text-red-500">*</span>
 
-                            <input type="number"
-                                   id="amount_paid"
-                                   name="amount_paid"
-                                   value="{{ old('amount_paid', $payment->amount_paid) }}"
-                                   min="0"
-                                   step="0.01"
-                                   required
-                                   placeholder="Ex : 3000"
-                                   class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+                    </label>
 
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                DA
-                            </span>
+                    <div class="relative">
 
-                        </div>
+                        <input type="number"
+                               id="amount_paid"
+                               name="amount_paid"
+                               value="{{ old('amount_paid', $payment->amount_paid) }}"
+                               min="0"
+                               step="0.01"
+                               required
+                               placeholder="Ex : 3000"
+                               class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                            DA
+                        </span>
 
                     </div>
 
                 </div>
 
 
-                {{-- ===================================================== --}}
                 {{-- RESTE --}}
-                {{-- ===================================================== --}}
-
                 <div class="mb-6 p-5 rounded-2xl bg-blue-50 border border-blue-100">
 
                     <div class="flex items-center justify-between">
@@ -465,10 +412,7 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
                 {{-- MODE PAIEMENT --}}
-                {{-- ===================================================== --}}
-
                 <div class="mb-6">
 
                     <label for="payment_method"
@@ -512,10 +456,7 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
                 {{-- NOTE --}}
-                {{-- ===================================================== --}}
-
                 <div class="mb-8">
 
                     <label for="note"
@@ -534,10 +475,7 @@
                 </div>
 
 
-                {{-- ===================================================== --}}
                 {{-- BOUTONS --}}
-                {{-- ===================================================== --}}
-
                 <div class="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t border-gray-100">
 
                     <a href="{{ route('payments.index') }}"
@@ -566,198 +504,75 @@
 </div>
 
 
-{{-- ========================================================= --}}
-{{-- JAVASCRIPT --}}
-{{-- ========================================================= --}}
-
 <script>
 
-    document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-        const paymentType = document.getElementById('payment_type');
-
-        const monthlyPeriod = document.getElementById('monthlyPeriod');
-        const vipPeriod = document.getElementById('vipPeriod');
-
-        const periodMonth = document.getElementById('period_month');
-        const periodVip = document.getElementById('period_vip');
-        const period = document.getElementById('period');
-
-        const amountDue = document.getElementById('amount_due');
-        const amountPaid = document.getElementById('amount_paid');
-
-        const remainingPreview =
-            document.getElementById('remainingPreview');
-
-        const paymentStatus =
-            document.getElementById('paymentStatus');
+    const paymentType = document.getElementById('payment_type');
+    const periodMonth = document.getElementById('period_month');
+    const period      = document.getElementById('period');
+    const monthlyPeriod = document.getElementById('monthlyPeriod');
+    const amountDue   = document.getElementById('amount_due');
+    const amountPaid  = document.getElementById('amount_paid');
+    const remainingPrev = document.getElementById('remainingPreview');
+    const paymentStatus = document.getElementById('paymentStatus');
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TYPE D'ABONNEMENT
-        |--------------------------------------------------------------------------
-        */
+    function updatePaymentType() {
+        const val = paymentType.value;
+        const isMonthly = (val === 'monthly' || val === 'special_monthly' || val === 'vip_monthly');
 
-        function updatePaymentType() {
-
-            if (paymentType.value === 'monthly') {
-
-                monthlyPeriod.classList.remove('hidden');
-                vipPeriod.classList.add('hidden');
-
-                periodMonth.required = true;
-                periodVip.required = false;
-
-                period.value = periodMonth.value;
-
+        if (isMonthly) {
+            monthlyPeriod.classList.remove('hidden');
+            periodMonth.required = true;
+            period.value = periodMonth.value;
+        } else {
+            monthlyPeriod.classList.add('hidden');
+            periodMonth.required = false;
+            if (!period.value || periodMonth.value) {
+                period.value = new Date().toISOString().slice(0, 10);
             }
-
-            else if (paymentType.value === 'vip') {
-
-                monthlyPeriod.classList.add('hidden');
-                vipPeriod.classList.remove('hidden');
-
-                periodMonth.required = false;
-                periodVip.required = true;
-
-                period.value = periodVip.value;
-
-            }
-
-            else {
-
-                monthlyPeriod.classList.remove('hidden');
-                vipPeriod.classList.add('hidden');
-
-                periodMonth.required = false;
-                periodVip.required = false;
-
-                period.value = '';
-
-            }
-
         }
+    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | SYNCHRONISER LA PERIODE
-        |--------------------------------------------------------------------------
-        */
-
-        periodMonth.addEventListener('change', function () {
-
-            if (paymentType.value === 'monthly') {
-
-                period.value = this.value;
-
-            }
-
-        });
-
-
-        periodVip.addEventListener('change', function () {
-
-            if (paymentType.value === 'vip') {
-
-                period.value = this.value;
-
-            }
-
-        });
-
-
-        paymentType.addEventListener('change', updatePaymentType);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CALCUL DU RESTE
-        |--------------------------------------------------------------------------
-        */
-
-        function calculateRemaining() {
-
-            const due =
-                parseFloat(amountDue.value) || 0;
-
-            const paid =
-                parseFloat(amountPaid.value) || 0;
-
-            const remaining =
-                Math.max(due - paid, 0);
-
-
-            remainingPreview.textContent =
-                remaining.toFixed(2) + ' DA';
-
-
-            if (due === 0 && paid === 0) {
-
-                paymentStatus.textContent =
-                    'En attente';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-bold text-sm';
-
-            }
-
-            else if (paid === 0) {
-
-                paymentStatus.textContent =
-                    'Non payé';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-red-100 text-red-700 font-bold text-sm';
-
-            }
-
-            else if (paid < due) {
-
-                paymentStatus.textContent =
-                    'Paiement partiel';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-sm';
-
-            }
-
-            else {
-
-                paymentStatus.textContent =
-                    'Payé';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold text-sm';
-
-            }
-
+    periodMonth.addEventListener('change', function () {
+        if (paymentType.value === 'monthly' || paymentType.value === 'special_monthly' || paymentType.value === 'vip_monthly') {
+            period.value = this.value;
         }
-
-
-        amountDue.addEventListener(
-            'input',
-            calculateRemaining
-        );
-
-        amountPaid.addEventListener(
-            'input',
-            calculateRemaining
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | INITIALISATION
-        |--------------------------------------------------------------------------
-        */
-
-        updatePaymentType();
-
-        calculateRemaining();
-
     });
+
+
+    function calculateRemaining() {
+        const due  = parseFloat(amountDue.value) || 0;
+        const paid = parseFloat(amountPaid.value) || 0;
+        const remaining = Math.max(due - paid, 0);
+
+        remainingPrev.textContent = remaining.toFixed(2) + ' DA';
+
+        if (due === 0 && paid === 0) {
+            paymentStatus.textContent = 'En attente';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-bold text-sm';
+        } else if (paid === 0) {
+            paymentStatus.textContent = 'Non payé';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-red-100 text-red-700 font-bold text-sm';
+        } else if (paid < due) {
+            paymentStatus.textContent = 'Paiement partiel';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-sm';
+        } else {
+            paymentStatus.textContent = 'Payé';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold text-sm';
+        }
+    }
+
+
+    paymentType.addEventListener('change', updatePaymentType);
+    amountPaid.addEventListener('input', calculateRemaining);
+
+    updatePaymentType();
+    calculateRemaining();
+
+});
 
 </script>
 

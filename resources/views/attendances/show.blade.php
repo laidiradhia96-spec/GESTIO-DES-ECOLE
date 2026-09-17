@@ -187,7 +187,7 @@
                 </div>
 
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
 
 
                     {{-- DATE --}}
@@ -317,6 +317,55 @@
 
                                         —
 
+                                    @endif
+
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {{-- GROUPE --}}
+                    <div class="relative overflow-hidden
+                                rounded-2xl
+                                bg-green-50
+                                border border-green-100
+                                p-5">
+
+                        <div class="flex items-center gap-3">
+
+                            <div class="w-11 h-11
+                                        rounded-xl
+                                        bg-white
+                                        flex items-center justify-center
+                                        text-xl
+                                        shadow-sm">
+                                👥
+                            </div>
+
+                            <div>
+
+                                <p class="text-xs
+                                          font-bold
+                                          uppercase
+                                          text-green-600">
+                                    Groupe
+                                </p>
+
+                                <p class="text-lg
+                                          font-extrabold
+                                          text-[#0B2A55]
+                                          mt-1">
+
+                                    @if ($attendance->group)
+                                        {{ $attendance->group->name }}
+                                        <span class="text-sm font-normal text-gray-500">
+                                            — {{ $attendance->group->level }}
+                                        </span>
+                                    @else
+                                        —
                                     @endif
 
                                 </p>

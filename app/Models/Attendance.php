@@ -14,6 +14,7 @@ class Attendance extends Model
         'student_id',
         'subject_id',
         'teacher_id',
+        'group_id',
         'date',
         'status',
         'note',
@@ -54,5 +55,13 @@ class Attendance extends Model
     public function schoolYear(): BelongsTo
     {
         return $this->belongsTo(SchoolYear::class);
+    }
+
+    /**
+     * Groupe pédagogique
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 }

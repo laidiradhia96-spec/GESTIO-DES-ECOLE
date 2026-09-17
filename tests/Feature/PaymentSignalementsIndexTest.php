@@ -2,6 +2,8 @@
 
 use App\Models\Attendance;
 use App\Models\Enrollment;
+use App\Models\Group;
+use App\Models\GroupTariff;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
 use App\Models\SchoolYear;
@@ -25,6 +27,11 @@ function debtSchoolYears(): array
     return [$year2025, $year2026];
 }
 
+function debtSchoolYearId(): int
+{
+    return debtSchoolYears()[0]->id;
+}
+
 function debtStudent(string $firstName, string $lastName): Student
 {
     return Student::factory()->create([
@@ -34,10 +41,36 @@ function debtStudent(string $firstName, string $lastName): Student
     ]);
 }
 
-function debtEnrollment(Student $student, Subject $subject, string $paymentType): Enrollment
+function debtEnrollment(Student $student, Subject $subject, string $paymentType, float $tariffPrice = 1500): Enrollment
 {
     $teacher = Teacher::factory()->create();
     $subject->teachers()->attach($teacher);
+
+    $group = Group::create([
+        'teacher_id' => $teacher->id,
+        'subject_id' => $subject->id,
+        'level' => '1AP',
+        'school_year_id' => SchoolYear::firstOrCreate(
+            ['name' => '2025-2026'],
+            ['start_date' => '2025-09-01', 'end_date' => '2026-08-31', 'is_current' => true]
+        )->id,
+        'name' => 'Groupe Test',
+        'mode' => in_array($paymentType, ['vip', 'vip_monthly', 'vip_per_session']) ? 'vip' : 'normal',
+        'is_active' => true,
+    ]);
+
+    $group->students()->attach($student->id, ['joined_at' => '2026-08-01', 'is_active' => true]);
+
+    GroupTariff::create([
+        'group_id' => $group->id,
+        'billing_type' => 'monthly',
+        'student_price' => $tariffPrice,
+        'teacher_share' => $tariffPrice * 0.6,
+        'academy_share' => $tariffPrice * 0.4,
+        'effective_from' => '2025-09-01',
+        'effective_to' => null,
+        'is_active' => true,
+    ]);
 
     return Enrollment::create([
         'student_id' => $student->id,
@@ -69,6 +102,42 @@ function debtPayment(Student $student, Subject $subject, array $attributes = [])
 
     $period = $attributes['period'] ?? '2026-08';
     $paymentDate = $attributes['payment_date'] ?? '2026-08-20';
+
+    // Ensure a Group + GroupTariff exist for this subject so getObligationAmount() works
+    $existingGroup = Group::where('subject_id', $subject->id)
+        ->where('is_active', true)
+        ->whereHas('students', fn ($q) => $q->where('students.id', $student->id))
+        ->first();
+
+    if (! $existingGroup) {
+        $teacher = Teacher::factory()->create();
+
+        $group = Group::create([
+            'teacher_id' => $teacher->id,
+            'subject_id' => $subject->id,
+            'level' => '1AP',
+            'school_year_id' => SchoolYear::firstOrCreate(
+                ['name' => '2025-2026'],
+                ['start_date' => '2025-09-01', 'end_date' => '2026-08-31', 'is_current' => true]
+            )->id,
+            'name' => 'Groupe Test',
+            'mode' => 'normal',
+            'is_active' => true,
+        ]);
+
+        $group->students()->attach($student->id, ['joined_at' => '2026-08-01', 'is_active' => true]);
+
+        GroupTariff::create([
+            'group_id' => $group->id,
+            'billing_type' => 'monthly',
+            'student_price' => 1500,
+            'teacher_share' => 900,
+            'academy_share' => 600,
+            'effective_from' => '2025-09-01',
+            'effective_to' => null,
+            'is_active' => true,
+        ]);
+    }
 
     return Payment::factory()->create(array_merge([
         'student_id' => $student->id,
@@ -112,7 +181,7 @@ test('mensuel : plusieurs présences dans le mois = UNE seule ligne d\'impayé, 
     debtAttendance($student, $subject, '2026-08-13', 'present');
     debtAttendance($student, $subject, '2026-08-15', 'present');
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index'));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk();
 
@@ -137,7 +206,7 @@ test('vip : chaque jour de présence = une ligne indépendante', function () {
     debtAttendance($student, $subject, '2026-08-13', 'present');
     debtAttendance($student, $subject, '2026-08-15', 'present');
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index'));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk();
 
@@ -156,7 +225,7 @@ test('un statut absent ne génère jamais d\'obligation d\'impayé', function ()
     debtEnrollment($student, $subject, 'monthly');
     debtAttendance($student, $subject, '2026-08-05', 'absent');
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('Aucun impayé');
 });
@@ -175,7 +244,7 @@ test('mensuel : un paiement couvrant le mois masque la dette', function () {
         'payment_date' => '2026-08-20',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('Aucun impayé');
 });
@@ -194,7 +263,7 @@ test('mensuel : un paiement partiel affiche le montant restant', function () {
         'payment_date' => '2026-08-14',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('500,00');
 });
@@ -257,13 +326,13 @@ test('vip : chaque jour est indépendant, le paiement d\'un jour ne paie pas les
     debtPayment($student, $subject, [
         'payment_type' => 'vip',
         'period' => '2026-08-15',
-        'amount_due' => 500,
-        'amount_paid' => 500,
+        'amount_due' => 1500,
+        'amount_paid' => 1500,
         'remaining_amount' => 0,
         'payment_date' => '2026-08-15',
     ]);
 
-    $content = $this->actingAs($user)->get(route('payment-signalements.index'))
+    $content = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->getContent();
 
@@ -320,7 +389,7 @@ test('le select année scolaire liste les années créées et l\'option Toutes l
     $year2025 = debtSchoolYears()[0];
     $year2026 = debtSchoolYears()[1];
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index'));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk()
         ->assertSee('Toutes les années')
@@ -338,7 +407,7 @@ test('un signalement stocké ouvert est réutilisé (statut + actions) sans en c
     debtAttendance($student, $subject, '2026-08-08', 'present');
     debtStoredSignalement($student, $subject, ['status' => 'sent']);
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index'));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk()
         ->assertSee('Envoyé')
@@ -387,7 +456,7 @@ test('le filtre statut resolved affiche uniquement l\'historique stocké résolu
     $sami = debtStudent('Sami', 'Bouzid');
     debtStoredSignalement($sami, $subject, ['status' => 'resolved']);
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['status' => 'resolved']));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['status' => 'resolved', 'school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk()
         ->assertSee('Bouzid')
@@ -400,7 +469,7 @@ test('une présence sans enrollment ni paiement génère une dette mensuelle par
     $subject = Subject::factory()->create(['name' => 'MATIMATIQUE']);
     debtAttendance($student, $subject, '2026-08-15', 'present');
 
-    $response = $this->actingAs($user)->get(route('payment-signalements.index'));
+    $response = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]));
 
     $response->assertOk()
         ->assertSee('Laidi')
@@ -426,7 +495,7 @@ test('une présence sans enrollment avec paiement mensuel partiel affiche le res
         'payment_date' => '2026-08-14',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('500,00')
         ->assertSee('En attente');
@@ -440,7 +509,7 @@ test('une présence est une dette même si l\'enrollment concerne une autre mati
     debtEnrollment($student, $englais, 'monthly');
     debtAttendance($student, $matimatique, '2026-08-15', 'present');
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('MATIMATIQUE')
         ->assertSee('Mensuel')
@@ -461,7 +530,7 @@ test('un paiement d\'octobre ne paie jamais la dette d\'août', function () {
         'payment_date' => '2026-08-14',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('Août 2026')
         ->assertSee('En attente');
@@ -481,7 +550,7 @@ test('un paiement complet d\'août paie la dette d\'août', function () {
         'payment_date' => '2026-08-20',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('Aucun impayé');
 });
@@ -500,7 +569,7 @@ test('un paiement partiel d\'août laisse le montant restant correct', function 
         'payment_date' => '2026-08-14',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('500,00');
 });
@@ -520,7 +589,7 @@ test('un paiement sur une autre matière ne paie pas la dette', function () {
         'payment_date' => '2026-08-20',
     ]);
 
-    $this->actingAs($user)->get(route('payment-signalements.index'))
+    $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->assertSee('MATIMATIQUE')
         ->assertSee('Mensuel')
@@ -542,7 +611,7 @@ test('vip : le paiement d\'une autre journée ne paie pas la journée même si p
         'payment_date' => '2026-08-08',
     ]);
 
-    $content = $this->actingAs($user)->get(route('payment-signalements.index'))
+    $content = $this->actingAs($user)->get(route('payment-signalements.index', ['school_year_id' => debtSchoolYearId()]))
         ->assertOk()
         ->getContent();
 

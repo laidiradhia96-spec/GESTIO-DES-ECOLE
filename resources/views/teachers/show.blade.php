@@ -590,6 +590,137 @@
     @endif
 
 </div>
+
+    <!-- ================= GROUPES ================= -->
+
+    @if($teacher->groups->count())
+        <div class="bg-white dark:bg-gray-800
+                    rounded-3xl
+                    shadow-sm
+                    border border-gray-100
+                    dark:border-gray-700
+                    p-6 mb-6">
+
+            <div class="flex items-center justify-between mb-6">
+
+                <h3 class="text-xl
+                           font-extrabold
+                           text-[#0B2A55]
+                           dark:text-white
+                           flex items-center gap-2">
+
+                    👥 Groupes pédagogiques
+
+                    <span class="inline-flex items-center justify-center
+                                 w-7 h-7
+                                 rounded-full
+                                 bg-blue-100
+                                 text-blue-800
+                                 text-xs
+                                 font-bold">
+                        {{ $teacher->groups->count() }}
+                    </span>
+
+                </h3>
+
+                <a href="{{ route('groups.index', ['teacher_id' => $teacher->id]) }}"
+                   class="inline-flex items-center gap-2
+                          px-4 py-2
+                          rounded-xl
+                          bg-[#0B2A55]
+                          text-white
+                          text-xs
+                          font-bold
+                          hover:bg-[#061A33]
+                          transition">
+                    Voir tous
+                </a>
+
+            </div>
+
+            <div class="space-y-3">
+                @foreach($teacher->groups as $group)
+                    <div class="flex items-center gap-4
+                                p-4
+                                rounded-xl
+                                bg-gray-50
+                                border border-gray-200
+                                hover:shadow-md
+                                transition
+                                group">
+
+                        <!-- Mode icon -->
+                        <span class="text-2xl">
+                            @if($group->mode === 'vip') 🌟
+                            @elseif($group->mode === 'special') ⭐
+                            @else 📘
+                            @endif
+                        </span>
+
+                        <!-- Info -->
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2">
+                                <a href="{{ route('groups.show', $group) }}"
+                                   class="font-extrabold
+                                          text-[#0B2A55]
+                                          group-hover:text-[#C89B3C]
+                                          transition">
+                                    {{ $group->name }}
+                                </a>
+                                @if($group->is_active)
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                                @else
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                                @endif
+                            </div>
+                            <div class="flex items-center gap-3 text-sm text-gray-500 mt-1">
+                                <span>{{ $group->subject->name }}</span>
+                                <span>•</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                                    {{ $group->level }}
+                                </span>
+                                <span>•</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold
+                                    {{ $group->mode === 'vip' ? 'bg-purple-100 text-purple-800' : ($group->mode === 'special' ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-green-800') }}">
+                                    {{ ucfirst($group->mode) }}
+                                </span>
+                                <span>•</span>
+                                <span class="font-bold text-[#0B2A55]">
+                                    {{ $group->schedules->count() }} créneau(x)
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Tarif -->
+                        @if($group->currentTariff)
+                            <div class="text-right">
+                                <div class="font-extrabold text-[#0B2A55]">
+                                    {{ number_format($group->currentTariff->student_price, 0, ',', ' ') }} DA
+                                </div>
+                                <div class="text-xs text-gray-400">
+                                    {{ $group->currentTariff->billing_type === 'monthly' ? '/mois' : '/séance' }}
+                                </div>
+                            </div>
+                        @endif
+
+                        <!-- Créeaux résumé -->
+                        @if($group->schedules->count())
+                            <div class="hidden md:flex items-center gap-2">
+                                @foreach($group->schedules as $s)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700">
+                                        {{ substr($s->day, 0, 3) }} {{ substr($s->start_time, 0, 5) }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
+
+                    </div>
+                @endforeach
+            </div>
+
+        </div>
+    @endif
+
             <!-- ================= ACTIONS ================= -->
 
             <div class="mt-6

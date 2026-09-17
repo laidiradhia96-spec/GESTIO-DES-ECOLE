@@ -259,8 +259,11 @@
                 </div>
 
                 <div class="value">
-                    {{ $enrollment?->teacher->last_name }}
-                    {{ $enrollment?->teacher->first_name }}
+                    @php
+                        $teacherForPrint = $payment->group?->teacher ?? $enrollment?->teacher;
+                    @endphp
+                    {{ $teacherForPrint?->last_name ?? '' }}
+                    {{ $teacherForPrint?->first_name ?? '' }}
                 </div>
             </div>
 

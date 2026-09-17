@@ -14,11 +14,14 @@ class Payment extends Model
         'receipt_number',
         'student_id',
         'subject_id',
+        'group_id',
         'payment_type',
         'period',
         'amount_due',
         'amount_paid',
         'remaining_amount',
+        'teacher_share',
+        'academy_share',
         'payment_method',
         'payment_date',
         'payment_time',
@@ -30,6 +33,8 @@ class Payment extends Model
         'amount_due' => 'decimal:2',
         'amount_paid' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
+        'teacher_share' => 'decimal:2',
+        'academy_share' => 'decimal:2',
         'payment_date' => 'date',
     ];
 
@@ -47,6 +52,14 @@ class Payment extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
+    }
+
+    /**
+     * Groupe
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class);
     }
 
     /**

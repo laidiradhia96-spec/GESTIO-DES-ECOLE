@@ -2,56 +2,44 @@
     class="bg-white border-b border-gray-200 shadow-sm">
 
     <!-- Primary Navigation Menu -->
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
 
-        <div class="flex justify-between h-20">
+        <div class="flex justify-between items-center h-16">
 
-            <!-- Left Side -->
-            <div class="flex items-center">
+            <!-- Left Side: Logo + Nav -->
+            <div class="flex items-center flex-nowrap whitespace-nowrap min-w-0">
 
                 <!-- Logo -->
-                <div class="flex items-center">
+                <a href="{{ route('dashboard') }}"
+                   class="flex items-center gap-2 shrink-0">
 
-                    <a href="{{ route('dashboard') }}"
-                       class="flex items-center gap-3">
+                    <img
+                        src="{{ asset('images/logo.jpeg') }}"
+                        alt="Académie El Tafawok"
+                        class="h-10 w-10 object-contain"
+                    >
 
-                        <img
-                            src="{{ asset('images/logo.jpeg') }}"
-                            alt="Académie El Tafawok"
-                            class="h-14 w-14 object-contain"
-                        >
-
-                        <div class="leading-tight">
-
-                            <div class="text-xl font-bold text-[#0B2A55]">
-                                Académie
-                            </div>
-
-                            <div class="text-sm font-medium text-[#C89B3C]">
-                                El Tafawok
-                            </div>
-
+                    <div class="leading-tight hidden lg:block">
+                        <div class="text-sm font-bold text-[#0B2A55]">
+                            Académie
                         </div>
+                        <div class="text-xs font-medium text-[#C89B3C]">
+                            El Tafawok
+                        </div>
+                    </div>
 
-                    </a>
+                </a>
 
-                </div>
+                <!-- Desktop Navigation -->
+                <div class="hidden lg:flex lg:items-center lg:ml-6 flex-nowrap whitespace-nowrap gap-1">
 
-
-                <!-- Navigation -->
-                <div class="hidden sm:flex sm:items-center sm:ms-12 space-x-8">
-
-                    <!-- Dashboard -->
                     <x-nav-link
                         :href="route('dashboard')"
                         :active="request()->routeIs('dashboard')"
                     >
-                    🏠 Dashboard
-                      <!--  {{ __('Dashboard') }}-->
+                        🏠 Dashboard
                     </x-nav-link>
 
-
-                    <!-- Élèves -->
                     <x-nav-link
                         :href="route('students.index')"
                         :active="request()->routeIs('students.*')"
@@ -59,17 +47,13 @@
                         👨‍🎓 Élèves
                     </x-nav-link>
 
-
-                    <!-- Enseignants -->
                     <x-nav-link
                         :href="route('teachers.index')"
                         :active="request()->routeIs('teachers.*')"
                     >
-                       👨‍🏫 Enseignants
+                        👨‍🏫 Enseignants
                     </x-nav-link>
 
-
-                    <!-- Matières -->
                     <x-nav-link
                         :href="route('subjects.index')"
                         :active="request()->routeIs('subjects.*')"
@@ -77,53 +61,61 @@
                         📚 Matières
                     </x-nav-link>
 
-                    <!-- Présences -->
-<x-nav-link
-    :href="route('attendances.index')"
-    :active="request()->routeIs('attendances.*')"
->
-    📋 Présences
-</x-nav-link>
-<!-- Paiements -->
+                    <x-nav-link
+                        :href="route('groups.index')"
+                        :active="request()->routeIs('groups.*')"
+                    >
+                        👥 Groupes
+                    </x-nav-link>
 
+                    <x-nav-link
+                        :href="route('attendances.index')"
+                        :active="request()->routeIs('attendances.*')"
+                    >
+                        📋 Présences
+                    </x-nav-link>
 
-<x-nav-link
-    :href="route('payments.index')"
-    :active="request()->routeIs('payments.*')"
->
-    💳 Paiements
-</x-nav-link>
+                    <x-nav-link
+                        :href="route('payments.index')"
+                        :active="request()->routeIs('payments.*')"
+                    >
+                        💳 Paiements
+                    </x-nav-link>
 
+                    <x-nav-link
+                        :href="route('payment-signalements.index')"
+                        :active="request()->routeIs('payment-signalements.*')"
+                    >
+                        🚨 Impayés
+                    </x-nav-link>
 
-<!-- Signalements -->
-<x-nav-link
-    :href="route('payment-signalements.index')"
-    :active="request()->routeIs('payment-signalements.*')"
->
-    🚨 Impayés
-</x-nav-link>
+                    <x-nav-link
+                        :href="route('school-years.index')"
+                        :active="request()->routeIs('school-years.*')"
+                    >
+                        🗓️ Années scolaires
+                    </x-nav-link>
 
-<!-- Années scolaires -->
-<x-nav-link
-    :href="route('school-years.index')"
-    :active="request()->routeIs('school-years.*')"
->
-    🗓️ Années scolaires
-</x-nav-link>
+                    <x-nav-link
+                        :href="route('revenus.index')"
+                        :active="request()->routeIs('revenus.*')"
+                    >
+                        💰 Revenus
+                    </x-nav-link>
+
                 </div>
 
             </div>
 
-
-            <!-- User Dropdown -->
-            <div class="hidden sm:flex sm:items-center">
+            <!-- Right Side: User Dropdown -->
+            <div class="hidden lg:flex lg:items-center shrink-0 ml-4">
 
                 <x-dropdown align="right" width="48">
 
                     <x-slot name="trigger">
 
                         <button
-                            class="inline-flex items-center gap-2 px-4 py-2
+                            class="inline-flex items-center gap-2 px-3 py-1.5
                                    rounded-lg
                                    text-sm font-medium
                                    text-[#0B2A55]
@@ -158,13 +150,10 @@
 
                     <x-slot name="content">
 
-                        <!-- Profile -->
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
 
-
-                        <!-- Logout -->
                         <form method="POST" action="{{ route('logout') }}">
 
                             @csrf
@@ -184,9 +173,8 @@
 
             </div>
 
-
             <!-- Mobile Hamburger -->
-            <div class="-me-2 flex items-center sm:hidden">
+            <div class="-me-2 flex items-center lg:hidden">
 
                 <button
                     @click="open = ! open"
@@ -245,12 +233,11 @@
             'block': open,
             'hidden': ! open
         }"
-        class="hidden sm:hidden border-t border-gray-100"
+        class="hidden lg:hidden border-t border-gray-100"
     >
 
         <div class="pt-2 pb-3 space-y-1">
 
-            <!-- Dashboard -->
             <x-responsive-nav-link
                 :href="route('dashboard')"
                 :active="request()->routeIs('dashboard')"
@@ -258,8 +245,6 @@
                 Dashboard
             </x-responsive-nav-link>
 
-
-            <!-- Élèves -->
             <x-responsive-nav-link
                 :href="route('students.index')"
                 :active="request()->routeIs('students.*')"
@@ -267,8 +252,6 @@
                 Élèves
             </x-responsive-nav-link>
 
-
-            <!-- Enseignants -->
             <x-responsive-nav-link
                 :href="route('teachers.index')"
                 :active="request()->routeIs('teachers.*')"
@@ -276,8 +259,6 @@
                 Enseignants
             </x-responsive-nav-link>
 
-
-            <!-- Matières -->
             <x-responsive-nav-link
                 :href="route('subjects.index')"
                 :active="request()->routeIs('subjects.*')"
@@ -285,40 +266,49 @@
                 Matières
             </x-responsive-nav-link>
 
+            <x-responsive-nav-link
+                :href="route('groups.index')"
+                :active="request()->routeIs('groups.*')"
+            >
+                Groupes
+            </x-responsive-nav-link>
 
-<!-- Paiements -->
-<x-responsive-nav-link
-    :href="route('payments.index')"
-    :active="request()->routeIs('payments.*')"
->
-    💳 Paiements
-</x-responsive-nav-link>
+            <x-responsive-nav-link
+                :href="route('attendances.index')"
+                :active="request()->routeIs('attendances.*')"
+            >
+                📋 Présences
+            </x-responsive-nav-link>
 
+            <x-responsive-nav-link
+                :href="route('payments.index')"
+                :active="request()->routeIs('payments.*')"
+            >
+                💳 Paiements
+            </x-responsive-nav-link>
 
-<!-- Signalements -->
-<x-responsive-nav-link
-    :href="route('payment-signalements.index')"
-    :active="request()->routeIs('payment-signalements.*')"
->
-    🚨 Impayés
-</x-responsive-nav-link>
+            <x-responsive-nav-link
+                :href="route('payment-signalements.index')"
+                :active="request()->routeIs('payment-signalements.*')"
+            >
+                🚨 Impayés
+            </x-responsive-nav-link>
 
-<!-- Années scolaires -->
-<x-responsive-nav-link
-    :href="route('school-years.index')"
-    :active="request()->routeIs('school-years.*')"
->
-    🗓️ Années scolaires
-</x-responsive-nav-link>
+            <x-responsive-nav-link
+                :href="route('school-years.index')"
+                :active="request()->routeIs('school-years.*')"
+            >
+                🗓️ Années scolaires
+            </x-responsive-nav-link>
+
+            <x-responsive-nav-link
+                :href="route('revenus.index')"
+                :active="request()->routeIs('revenus.*')"
+            >
+                💰 Revenus
+            </x-responsive-nav-link>
+
         </div>
-        <!-- Présences -->
-<x-responsive-nav-link
-    :href="route('attendances.index')"
-    :active="request()->routeIs('attendances.*')"
->
-    📋 Présences
-</x-responsive-nav-link>
-
 
         <!-- Mobile User -->
         <div class="pt-4 pb-1 border-t border-gray-200">
@@ -335,18 +325,14 @@
 
             </div>
 
-
             <div class="mt-3 space-y-1">
 
-                <!-- Profile -->
                 <x-responsive-nav-link
                     :href="route('profile.edit')"
                 >
                     Profile
                 </x-responsive-nav-link>
 
-
-                <!-- Logout -->
                 <form method="POST" action="{{ route('logout') }}">
 
                     @csrf
@@ -357,9 +343,6 @@
                     >
                         Log Out
                     </x-responsive-nav-link>
-
-
-                
 
                 </form>
 

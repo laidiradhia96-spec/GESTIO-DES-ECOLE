@@ -20,7 +20,7 @@ class EnrollmentFactory extends Factory
             'teacher_id' => Teacher::factory(),
             'start_date' => fake()->date(),
             'status' => 'active',
-            'payment_type' => 'monthly',
+            'payment_type' => null,
         ];
     }
 

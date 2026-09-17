@@ -2,6 +2,8 @@
 
 use App\Models\Attendance;
 use App\Models\Enrollment;
+use App\Models\Group;
+use App\Models\GroupTariff;
 use App\Models\Payment;
 use App\Models\PaymentSignalement;
 use App\Models\SchoolYear;
@@ -382,4 +384,307 @@ test('reconcile supprime le signalement VIP du jour quand la présence supprimé
     $service->reconcileAfterAttendanceRemoval($student->id, $subject->id, '2026-08-05');
 
     expect(PaymentSignalement::where('period', '2026-08-05')->where('status', 'pending')->count())->toBe(0);
+});
+
+// =====================================================
+// TESTS MULTI-GROUPES : résolution tarif/type par group_id
+// =====================================================
+
+test('resolveSubscriptionType utilise le bon groupe quand un eleve a deux enrollments dans la meme matiere', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
+    // Groupe normal → tarif mensuel
+    $groupNormal = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'normal',
+        'name' => 'Groupe Normal',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $groupNormal->id,
+        'student_price' => 500,
+        'teacher_share' => 400,
+        'academy_share' => 100,
+        'billing_type' => 'monthly',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    // Groupe VIP → tarif VIP per session
+    $groupVip = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'vip',
+        'name' => 'Groupe VIP',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $groupVip->id,
+        'student_price' => 100,
+        'teacher_share' => 80,
+        'academy_share' => 20,
+        'billing_type' => 'per_session',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    // Deux enrollments : même étudiant, même matière, groupes différents
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $groupNormal->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $groupVip->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+
+    $service = app(PaymentSignalementService::class);
+
+    // Attendance dans le groupe VIP → doit résoudre vip_per_session
+    $attendanceVip = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'group_id' => $groupVip->id,
+        'date' => '2026-01-10',
+        'status' => 'present',
+    ]);
+    $service->syncFromAttendance($attendanceVip);
+
+    $signalementVip = PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-01-10')
+        ->first();
+
+    expect($signalementVip)->not->toBeNull()
+        ->and((float) $signalementVip->amount_remaining)->toBe(100.0);
+
+    // Attendance dans le groupe normal → doit résoudre monthly
+    $attendanceNormal = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'group_id' => $groupNormal->id,
+        'date' => '2026-02-10',
+        'status' => 'present',
+    ]);
+    $service->syncFromAttendance($attendanceNormal);
+
+    $signalementNormal = PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-02')
+        ->first();
+
+    expect($signalementNormal)->not->toBeNull()
+        ->and((float) $signalementNormal->amount_remaining)->toBe(500.0);
+});
+
+test('getObligationAmount retourne le bon tarif quand un eleve a deux enrollments dans la meme matiere', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
+    $group1 = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'normal',
+        'name' => 'Groupe Tarif 500',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $group1->id,
+        'student_price' => 500,
+        'teacher_share' => 400,
+        'academy_share' => 100,
+        'billing_type' => 'monthly',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    $group2 = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'normal',
+        'name' => 'Groupe Tarif 800',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $group2->id,
+        'student_price' => 800,
+        'teacher_share' => 640,
+        'academy_share' => 160,
+        'billing_type' => 'monthly',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $group1->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $group2->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+
+    $service = app(PaymentSignalementService::class);
+
+    // Attendance dans le groupe1 (tarif 500) → amount_remaining = 500
+    $attendance1 = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'group_id' => $group1->id,
+        'date' => '2026-01-10',
+        'status' => 'present',
+    ]);
+    $service->syncFromAttendance($attendance1);
+
+    $signalement1 = PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-01')
+        ->first();
+
+    expect($signalement1)->not->toBeNull()
+        ->and((float) $signalement1->amount_remaining)->toBe(500.0);
+
+    // Attendance dans le groupe2 (tarif 800) → amount_remaining = 800
+    $attendance2 = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'group_id' => $group2->id,
+        'date' => '2026-02-10',
+        'status' => 'present',
+    ]);
+    $service->syncFromAttendance($attendance2);
+
+    $signalement2 = PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-02')
+        ->first();
+
+    expect($signalement2)->not->toBeNull()
+        ->and((float) $signalement2->amount_remaining)->toBe(800.0);
+});
+
+test('syncFromAttendance avec group_id resout le bon tarif quand deux enrollments existent', function () {
+    $student = Student::factory()->create();
+    $subject = Subject::factory()->create();
+    $teacher = Teacher::factory()->create();
+    $subject->teachers()->attach($teacher);
+
+    $year = SchoolYear::create([
+        'name' => '2025-2026',
+        'start_date' => '2025-09-01',
+        'end_date' => '2026-08-31',
+    ]);
+
+    $groupNormal = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'normal',
+        'name' => 'Sync Normal',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $groupNormal->id,
+        'student_price' => 500,
+        'teacher_share' => 400,
+        'academy_share' => 100,
+        'billing_type' => 'monthly',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    $groupVip = Group::factory()->create([
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'level' => '1AP',
+        'mode' => 'vip',
+        'name' => 'Sync VIP',
+        'school_year_id' => $year->id,
+    ]);
+    GroupTariff::create([
+        'group_id' => $groupVip->id,
+        'student_price' => 100,
+        'teacher_share' => 80,
+        'academy_share' => 20,
+        'billing_type' => 'per_session',
+        'is_active' => true,
+        'effective_from' => '2025-09-01',
+    ]);
+
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $groupNormal->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+    Enrollment::create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'teacher_id' => $teacher->id,
+        'group_id' => $groupVip->id,
+        'status' => 'active',
+        'start_date' => '2025-09-01',
+    ]);
+
+    $service = app(PaymentSignalementService::class);
+
+    // Attendance dans le groupe VIP → signalement avec montant VIP
+    $attendance = Attendance::factory()->create([
+        'student_id' => $student->id,
+        'subject_id' => $subject->id,
+        'group_id' => $groupVip->id,
+        'date' => '2026-01-10',
+        'status' => 'present',
+    ]);
+
+    $service->syncFromAttendance($attendance);
+
+    $signalement = PaymentSignalement::where('student_id', $student->id)
+        ->where('subject_id', $subject->id)
+        ->where('period', '2026-01-10')
+        ->first();
+
+    expect($signalement)->not->toBeNull()
+        ->and((float) $signalement->amount_remaining)->toBe(100.0)
+        ->and($signalement->group_id)->toBe($groupVip->id);
 });

@@ -222,6 +222,8 @@
 
                     @method('PUT')
 
+                    <input type="hidden" name="group_id" value="{{ $attendance->group_id }}">
+
 
                     <div class="p-6 md:p-8">
 
@@ -230,9 +232,40 @@
                             INFORMATIONS SÉANCE
                         ================================================== --}}
                         <div class="grid grid-cols-1
-                                    md:grid-cols-3
+                                    md:grid-cols-4
                                     gap-6
                                     mb-10">
+
+
+                            {{-- Groupe --}}
+                            <div>
+
+                                <label class="block
+                                               text-sm
+                                               font-bold
+                                               text-gray-700
+                                               mb-2">
+
+                                    Groupe
+
+                                </label>
+
+                                <div class="w-full
+                                            rounded-xl
+                                            border border-green-200
+                                            bg-green-50
+                                            px-4 py-3
+                                            font-bold
+                                            text-green-800">
+
+                                    {{ $attendance->group->name ?? '—' }}
+                                    <span class="text-green-600 text-sm">
+                                        {{ $attendance->group->level ?? '' }}
+                                    </span>
+
+                                </div>
+
+                            </div>
 
 
                             {{-- Date --}}

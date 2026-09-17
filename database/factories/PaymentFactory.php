@@ -17,7 +17,7 @@ class PaymentFactory extends Factory
             'receipt_number' => fake()->unique()->numerify('REC-2026-#####'),
             'student_id' => Student::factory(),
             'subject_id' => Subject::factory(),
-            'payment_type' => fake()->randomElement(['monthly', 'vip']),
+            'payment_type' => fake()->randomElement(['monthly', 'special_monthly', 'vip_monthly', 'vip_per_session']),
             'period' => fake()->date('Y-m'),
             'amount_due' => fake()->randomFloat(2, 500, 10000),
             'amount_paid' => 0,

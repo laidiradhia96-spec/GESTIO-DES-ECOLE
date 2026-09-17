@@ -129,8 +129,24 @@
 
 
         {{-- Informations --}}
-        <div class="grid grid-cols-1 md:grid-cols-3
+        <div class="grid grid-cols-1 md:grid-cols-4
                     gap-4 mt-8">
+
+
+            <div class="border border-gray-200 rounded-xl p-4">
+
+                <p class="text-xs font-bold text-gray-500 uppercase">
+                    Groupe
+                </p>
+
+                <p class="font-bold text-green-700 mt-1">
+                    {{ $attendance->group->name ?? '—' }}
+                    <span class="text-sm text-green-600">
+                        {{ $attendance->group->level ?? '' }}
+                    </span>
+                </p>
+
+            </div>
 
 
             <div class="border border-gray-200 rounded-xl p-4">

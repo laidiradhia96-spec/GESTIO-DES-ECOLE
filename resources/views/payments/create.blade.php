@@ -60,18 +60,6 @@
         @endif
 
 
-        {{-- SUCCÈS --}}
-        @if (session('success'))
-
-            <div class="mb-6 bg-green-50 border border-green-200 text-green-700 rounded-2xl p-5">
-
-                {{ session('success') }}
-
-            </div>
-
-        @endif
-
-
         {{-- HEADER --}}
         <div class="bg-gradient-to-r from-[#061A33] via-[#0B2A55] to-[#163E73] rounded-3xl shadow-xl p-6 md:p-8 mb-7">
 
@@ -84,7 +72,7 @@
             </h1>
 
             <p class="text-blue-100 text-sm md:text-base mt-2">
-                Paiement mensuel ou VIP journalier.
+                Sélectionnez un élève, une matière et un groupe pour calculer le tarif automatiquement.
             </p>
 
         </div>
@@ -110,7 +98,7 @@
 
 
                 {{-- ===================================================== --}}
-                {{-- ELEVE --}}
+                {{-- ÉLÈVE --}}
                 {{-- ===================================================== --}}
 
                 <div class="mb-6">
@@ -153,7 +141,7 @@
 
 
                 {{-- ===================================================== --}}
-                {{-- MATIERE --}}
+                {{-- MATIÈRE --}}
                 {{-- ===================================================== --}}
 
                 <div class="mb-6">
@@ -168,26 +156,12 @@
                     <select id="subject_id"
                             name="subject_id"
                             required
+                            disabled
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
 
                         <option value="">
-                            -- Sélectionner une matière --
+                            -- Sélectionner un élève d'abord --
                         </option>
-
-                        @foreach($subjects as $subject)
-
-                            <option value="{{ $subject->id }}"
-                                {{ old('subject_id') == $subject->id ? 'selected' : '' }}>
-
-                                {{ $subject->name }}
-
-                                @if($subject->code)
-                                    — {{ $subject->code }}
-                                @endif
-
-                            </option>
-
-                        @endforeach
 
                     </select>
 
@@ -195,7 +169,40 @@
 
 
                 {{-- ===================================================== --}}
-                {{-- TYPE DE PAIEMENT --}}
+                {{-- GROUPE --}}
+                {{-- ===================================================== --}}
+
+                <div class="mb-6">
+
+                    <label for="group_id"
+                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
+
+                        Groupe <span class="text-red-500">*</span>
+
+                    </label>
+
+                    <select id="group_id"
+                            name="group_id"
+                            required
+                            disabled
+                            class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+
+                        <option value="">
+                            -- Sélectionner une matière d'abord --
+                        </option>
+
+                    </select>
+
+                    {{-- Group info --}}
+                    <div id="group-info" class="hidden mt-3 p-3 rounded-xl bg-green-50 border border-green-200">
+                        <p class="text-sm text-green-700 font-semibold" id="group-info-text"></p>
+                    </div>
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- TYPE D'ABONNEMENT --}}
                 {{-- ===================================================== --}}
 
                 <div class="mb-6">
@@ -207,48 +214,28 @@
 
                     </label>
 
-
                     <select id="payment_type"
                             name="payment_type"
                             required
+                            disabled
                             class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
 
                         <option value="">
-                            -- Sélectionner le type --
-                        </option>
-
-                        <option value="monthly"
-                            {{ old('payment_type') == 'monthly' ? 'selected' : '' }}>
-
-                            📅 Abonnement mensuel
-
-                        </option>
-
-                        <option value="vip"
-                            {{ old('payment_type') == 'vip' ? 'selected' : '' }}>
-
-                            ⭐ VIP / Paiement journalier
-
+                            -- Sélectionner un groupe d'abord --
                         </option>
 
                     </select>
 
-
-                    <p class="text-xs text-gray-500 mt-2">
-
-                        💡 Un élève peut avoir un abonnement mensuel dans une matière
-                        et VIP dans une autre.
-
-                    </p>
+                    <p id="payment-type-hint" class="text-xs text-gray-500 mt-2 hidden"></p>
 
                 </div>
 
 
                 {{-- ===================================================== --}}
-                {{-- PERIODE MENSUELLE --}}
+                {{-- MOIS (si mensuel) --}}
                 {{-- ===================================================== --}}
 
-                <div id="monthlyPeriod" class="mb-6">
+                <div id="monthlyPeriod" class="mb-6 hidden">
 
                     <label for="period_month"
                            class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
@@ -265,19 +252,9 @@
                         </option>
 
                         @foreach([
-    'Janvier',
-    'Février',
-    'Mars',
-    'Avril',
-    'Mai',
-    'Juin',
-    'Juillet',
-    'Août',
-    'Septembre',
-    'Octobre',
-    'Novembre',
-    'Décembre'
-] as $month)
+                            'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+                            'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'
+                        ] as $month)
 
                             <option value="{{ $month }}"
                                 {{ old('period') == $month ? 'selected' : '' }}>
@@ -289,33 +266,6 @@
                         @endforeach
 
                     </select>
-
-                </div>
-
-
-                {{-- ===================================================== --}}
-                {{-- PERIODE VIP --}}
-                {{-- ===================================================== --}}
-
-                <div id="vipPeriod" class="mb-6 hidden">
-
-                    <label for="period_vip"
-                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
-
-                        Date du paiement VIP <span class="text-red-500">*</span>
-
-                    </label>
-
-                    <input type="date"
-                           id="period_vip"
-                           class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]"
-                           value="{{ old('period') && preg_match('/^\d{4}-\d{2}-\d{2}$/', old('period')) ? old('period') : now()->format('Y-m-d') }}">
-
-                    <p class="text-xs text-gray-500 mt-2">
-
-                        ⭐ Le paiement VIP concerne uniquement cette journée.
-
-                    </p>
 
                 </div>
 
@@ -333,8 +283,6 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
 
-                    {{-- DATE DU PAIEMENT --}}
-
                     <div>
 
                         <label for="payment_date"
@@ -351,16 +299,8 @@
                                max="{{ now()->format('Y-m-d') }}"
                                class="w-full px-4 py-3 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
 
-                        <p class="text-xs text-gray-500 mt-2">
-
-                            💡 Vous pouvez enregistrer la vraie date si le paiement a été effectué plus tôt.
-
-                        </p>
-
                     </div>
 
-
-                    {{-- HEURE DU PAIEMENT --}}
 
                     <div>
 
@@ -383,72 +323,66 @@
 
 
                 {{-- ===================================================== --}}
-                {{-- MONTANTS --}}
+                {{-- MONTANT DEMANDE (AUTOMATIQUE) --}}
                 {{-- ===================================================== --}}
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+                <div class="mb-6">
 
+                    <label class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                    {{-- MONTANT DEMANDE --}}
+                        Montant demandé
 
-                    <div>
+                    </label>
 
-                        <label for="amount_due"
-                               class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
+                    <div class="relative">
 
-                            Montant demandé <span class="text-red-500">*</span>
+                        <input type="text"
+                               id="amount_due_display"
+                               readonly
+                               placeholder="—"
+                               class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-100 outline-none text-gray-700 font-bold cursor-not-allowed">
 
-                        </label>
-
-                        <div class="relative">
-
-                            <input type="number"
-                                   id="amount_due"
-                                   name="amount_due"
-                                   value="{{ old('amount_due') }}"
-                                   min="0"
-                                   step="0.01"
-                                   required
-                                   placeholder="Ex : 3000"
-                                   class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
-
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                DA
-                            </span>
-
-                        </div>
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                            DA
+                        </span>
 
                     </div>
 
+                    <input type="hidden" name="amount_due" id="amount_due" value="">
 
-                    {{-- MONTANT PAYE --}}
+                    <p id="tariff-source" class="text-xs text-gray-500 mt-2 hidden"></p>
 
-                    <div>
+                </div>
 
-                        <label for="amount_paid"
-                               class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                            Montant payé <span class="text-red-500">*</span>
+                {{-- ===================================================== --}}
+                {{-- MONTANT PAYÉ --}}
+                {{-- ===================================================== --}}
 
-                        </label>
+                <div class="mb-6">
 
-                        <div class="relative">
+                    <label for="amount_paid"
+                           class="block text-sm font-bold text-[#0B2A55] dark:text-gray-200 mb-2">
 
-                            <input type="number"
-                                   id="amount_paid"
-                                   name="amount_paid"
-                                   value="{{ old('amount_paid') }}"
-                                   min="0"
-                                   step="0.01"
-                                   required
-                                   placeholder="Ex : 3000"
-                                   class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+                        Montant payé <span class="text-red-500">*</span>
 
-                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
-                                DA
-                            </span>
+                    </label>
 
-                        </div>
+                    <div class="relative">
+
+                        <input type="number"
+                               id="amount_paid"
+                               name="amount_paid"
+                               value="{{ old('amount_paid') }}"
+                               min="0"
+                               step="0.01"
+                               required
+                               placeholder="Ex : 3000"
+                               class="w-full px-4 py-3 pr-16 rounded-xl border-2 border-gray-200 bg-gray-50 outline-none focus:border-[#C89B3C]">
+
+                        <span class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">
+                            DA
+                        </span>
 
                     </div>
 
@@ -575,7 +509,9 @@
 
 
                     <button type="submit"
-                            class="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#0B2A55] hover:bg-[#061A33] text-white font-bold shadow-lg border-b-4 border-[#C89B3C]">
+                            id="submit-btn"
+                            disabled
+                            class="inline-flex items-center justify-center gap-2 px-7 py-3 rounded-xl bg-[#0B2A55] hover:bg-[#061A33] text-white font-bold shadow-lg border-b-4 border-[#C89B3C] disabled:opacity-50 disabled:cursor-not-allowed">
 
                         💾 Enregistrer le paiement
 
@@ -598,192 +534,272 @@
 
 <script>
 
-    document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
 
-        const paymentType = document.getElementById('payment_type');
+    const studentSelect  = document.getElementById('student_id');
+    const subjectSelect  = document.getElementById('subject_id');
+    const groupSelect    = document.getElementById('group_id');
+    const paymentType    = document.getElementById('payment_type');
+    const periodMonth    = document.getElementById('period_month');
+    const period         = document.getElementById('period');
+    const monthlyPeriod  = document.getElementById('monthlyPeriod');
+    const amountDueDisp  = document.getElementById('amount_due_display');
+    const amountDue      = document.getElementById('amount_due');
+    const amountPaid     = document.getElementById('amount_paid');
+    const remainingPrev  = document.getElementById('remainingPreview');
+    const paymentStatus  = document.getElementById('paymentStatus');
+    const submitBtn      = document.getElementById('submit-btn');
+    const groupInfo      = document.getElementById('group-info');
+    const groupInfoText  = document.getElementById('group-info-text');
+    const tariffSource   = document.getElementById('tariff-source');
+    const paymentTypeHint = document.getElementById('payment-type-hint');
 
-        const monthlyPeriod = document.getElementById('monthlyPeriod');
-        const vipPeriod = document.getElementById('vipPeriod');
+    let currentTariff = null;
 
-        const periodMonth = document.getElementById('period_month');
-        const periodVip = document.getElementById('period_vip');
-        const period = document.getElementById('period');
+    function escapeHtml(v) {
+        return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');
+    }
 
-        const amountDue = document.getElementById('amount_due');
-        const amountPaid = document.getElementById('amount_paid');
+    function resetSelect(el, placeholder) {
+        el.innerHTML = '<option value="">' + placeholder + '</option>';
+        el.disabled = true;
+    }
 
-        const remainingPreview =
-            document.getElementById('remainingPreview');
+    function enableSelect(el) { el.disabled = false; }
 
-        const paymentStatus =
-            document.getElementById('paymentStatus');
+    function checkSubmitReady() {
+        const ready = groupSelect.value && paymentType.value && amountDue.value > 0;
+        submitBtn.disabled = !ready;
+    }
 
 
-        /*
-        |--------------------------------------------------------------------------
-        | TYPE D'ABONNEMENT
-        |--------------------------------------------------------------------------
-        */
+    /* ── Student → Load Subjects ── */
+    studentSelect.addEventListener('change', function () {
+        const studentId = this.value;
 
-        function updatePaymentType() {
+        resetSelect(subjectSelect, '-- Sélectionner une matière --');
+        resetSelect(groupSelect, '-- Sélectionner une matière d\'abord --');
+        resetSelect(paymentType, '-- Sélectionner un groupe d\'abord --');
+        monthlyPeriod.classList.add('hidden');
+        groupInfo.classList.add('hidden');
+        amountDueDisp.value = '';
+        amountDue.value = '';
+        currentTariff = null;
+        tariffSource.classList.add('hidden');
+        paymentTypeHint.classList.add('hidden');
+        checkSubmitReady();
 
-            if (paymentType.value === 'monthly') {
+        if (!studentId) return;
 
-                monthlyPeriod.classList.remove('hidden');
-                vipPeriod.classList.add('hidden');
+        fetch("{{ route('payments.subjects-by-student') }}?student_id=" + encodeURIComponent(studentId))
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (subjects) {
+                subjectSelect.innerHTML = '<option value="">-- Choisir une matière --</option>';
+                subjects.forEach(function (s) {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    subjectSelect.appendChild(opt);
+                });
+                enableSelect(subjectSelect);
+            })
+            .catch(function () {
+                subjectSelect.innerHTML = '<option value="">-- Erreur --</option>';
+            });
+    });
 
-                periodMonth.required = true;
-                periodVip.required = false;
 
-                period.value = periodMonth.value;
+    /* ── Subject → Load Groups ── */
+    subjectSelect.addEventListener('change', function () {
+        const studentId = studentSelect.value;
+        const subjectId = this.value;
 
-            }
+        resetSelect(groupSelect, '-- Sélectionner un groupe --');
+        resetSelect(paymentType, '-- Sélectionner un groupe d\'abord --');
+        monthlyPeriod.classList.add('hidden');
+        groupInfo.classList.add('hidden');
+        amountDueDisp.value = '';
+        amountDue.value = '';
+        currentTariff = null;
+        tariffSource.classList.add('hidden');
+        paymentTypeHint.classList.add('hidden');
+        checkSubmitReady();
 
-            else if (paymentType.value === 'vip') {
+        if (!studentId || !subjectId) return;
 
-                monthlyPeriod.classList.add('hidden');
-                vipPeriod.classList.remove('hidden');
+        fetch("{{ route('payments.groups-by-student-subject') }}?student_id=" + encodeURIComponent(studentId) + "&subject_id=" + encodeURIComponent(subjectId))
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (groups) {
+                groupSelect.innerHTML = '<option value="">-- Choisir un groupe --</option>';
+                groups.forEach(function (g) {
+                    const label = g.name + ' — ' + g.mode.toUpperCase();
+                    const opt = document.createElement('option');
+                    opt.value = g.id;
+                    opt.textContent = label;
+                    opt.dataset.mode = g.mode;
+                    groupSelect.appendChild(opt);
+                });
+                enableSelect(groupSelect);
+            })
+            .catch(function () {
+                groupSelect.innerHTML = '<option value="">-- Erreur --</option>';
+            });
+    });
 
-                periodMonth.required = false;
-                periodVip.required = true;
 
-                period.value = periodVip.value;
+    /* ── Group → Load Tariff + Set Payment Types ── */
+    groupSelect.addEventListener('change', function () {
+        const groupId = this.value;
 
-            }
+        resetSelect(paymentType, '-- Sélectionner un type --');
+        monthlyPeriod.classList.add('hidden');
+        groupInfo.classList.add('hidden');
+        amountDueDisp.value = '';
+        amountDue.value = '';
+        currentTariff = null;
+        tariffSource.classList.add('hidden');
+        paymentTypeHint.classList.add('hidden');
 
-            else {
-
-                monthlyPeriod.classList.remove('hidden');
-                vipPeriod.classList.add('hidden');
-
-                periodMonth.required = false;
-                periodVip.required = false;
-
-                period.value = '';
-
-            }
-
+        if (!groupId) {
+            checkSubmitReady();
+            return;
         }
 
+        const selectedOpt = groupSelect.options[groupSelect.selectedIndex];
+        const mode = selectedOpt.dataset.mode;
 
-        /*
-        |--------------------------------------------------------------------------
-        | SYNCHRONISER LA PERIODE
-        |--------------------------------------------------------------------------
-        */
+        // Set group info
+        groupInfo.classList.remove('hidden');
+        groupInfoText.textContent = selectedOpt.textContent;
 
-        periodMonth.addEventListener('change', function () {
+        // Fetch tariff
+        fetch("{{ route('payments.tariff-by-group') }}?group_id=" + encodeURIComponent(groupId))
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (data) {
+                if (!data.found) {
+                    paymentTypeHint.classList.remove('hidden');
+                    paymentTypeHint.textContent = '⚠️ Aucun tarif actif pour ce groupe.';
+                    return;
+                }
 
-            if (paymentType.value === 'monthly') {
+                currentTariff = data;
 
-                period.value = this.value;
+                // Populate payment types based on mode + billing_type
+                paymentType.innerHTML = '<option value="">-- Choisir un type --</option>';
 
-            }
+                if (data.group_mode === 'normal' && data.billing_type === 'monthly') {
+                    addOption(paymentType, 'monthly', '📅 Abonnement mensuel');
+                    paymentTypeHint.classList.remove('hidden');
+                    paymentTypeHint.textContent = '💡 Groupe normal — facturation mensuelle.';
+                } else if (data.group_mode === 'special' && data.billing_type === 'monthly') {
+                    addOption(paymentType, 'special_monthly', '⭐ Groupe Spécial / Mensuel');
+                    paymentTypeHint.classList.remove('hidden');
+                    paymentTypeHint.textContent = '💡 Groupe spécial — facturation mensuelle.';
+                } else if (data.group_mode === 'vip' && data.billing_type === 'monthly') {
+                    addOption(paymentType, 'vip_monthly', '⭐ VIP / Paiement mensuel');
+                    paymentTypeHint.classList.remove('hidden');
+                    paymentTypeHint.textContent = '💡 Groupe VIP — facturation mensuelle.';
+                } else if (data.group_mode === 'vip' && data.billing_type === 'per_session') {
+                    addOption(paymentType, 'vip_per_session', '🎯 VIP / Paiement par séance');
+                    paymentTypeHint.classList.remove('hidden');
+                    paymentTypeHint.textContent = '💡 Groupe VIP — paiement par séance.';
+                }
 
-        });
+                // Pre-select the only option
+                if (paymentType.options.length === 2) {
+                    paymentType.selectedIndex = 1;
+                    paymentType.dispatchEvent(new Event('change'));
+                }
 
-
-        periodVip.addEventListener('change', function () {
-
-            if (paymentType.value === 'vip') {
-
-                period.value = this.value;
-
-            }
-
-        });
-
-
-        paymentType.addEventListener('change', updatePaymentType);
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | CALCUL DU RESTE
-        |--------------------------------------------------------------------------
-        */
-
-        function calculateRemaining() {
-
-            const due =
-                parseFloat(amountDue.value) || 0;
-
-            const paid =
-                parseFloat(amountPaid.value) || 0;
-
-            const remaining =
-                Math.max(due - paid, 0);
+                enableSelect(paymentType);
+            })
+            .catch(function () {
+                paymentTypeHint.classList.remove('hidden');
+                paymentTypeHint.textContent = '⚠️ Erreur lors du chargement du tarif.';
+            });
+    });
 
 
-            remainingPreview.textContent =
-                remaining.toFixed(2) + ' DA';
+    function addOption(select, value, text) {
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        select.appendChild(opt);
+    }
 
 
-            if (due === 0 && paid === 0) {
+    /* ── Payment Type → Show/Hide Month + Set Amount ── */
+    paymentType.addEventListener('change', function () {
+        const val = this.value;
+        const isMonthly = (val === 'monthly' || val === 'special_monthly' || val === 'vip_monthly');
 
-                paymentStatus.textContent =
-                    'En attente';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-bold text-sm';
-
-            }
-
-            else if (paid === 0) {
-
-                paymentStatus.textContent =
-                    'Non payé';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-red-100 text-red-700 font-bold text-sm';
-
-            }
-
-            else if (paid < due) {
-
-                paymentStatus.textContent =
-                    'Paiement partiel';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-sm';
-
-            }
-
-            else {
-
-                paymentStatus.textContent =
-                    'Payé';
-
-                paymentStatus.className =
-                    'px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold text-sm';
-
-            }
-
+        if (isMonthly) {
+            monthlyPeriod.classList.remove('hidden');
+            periodMonth.required = true;
+            period.value = periodMonth.value;
+        } else {
+            monthlyPeriod.classList.add('hidden');
+            periodMonth.required = false;
+            period.value = now_date();
         }
 
+        // Set amount from tariff
+        if (currentTariff) {
+            const price = parseFloat(currentTariff.student_price);
+            amountDueDisp.value = price.toFixed(2);
+            amountDue.value = price;
 
-        amountDue.addEventListener(
-            'input',
-            calculateRemaining
-        );
-
-        amountPaid.addEventListener(
-            'input',
-            calculateRemaining
-        );
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | INITIALISATION
-        |--------------------------------------------------------------------------
-        */
-
-        updatePaymentType();
+            tariffSource.classList.remove('hidden');
+            const btLabel = currentTariff.billing_type === 'monthly' ? '/ mois' : '/ séance';
+            tariffSource.textContent = 'Tarif du groupe: ' + price.toFixed(0) + ' DA ' + btLabel;
+        }
 
         calculateRemaining();
-
+        checkSubmitReady();
     });
+
+
+    periodMonth.addEventListener('change', function () {
+        if (paymentType.value === 'monthly' || paymentType.value === 'special_monthly' || paymentType.value === 'vip_monthly') {
+            period.value = this.value;
+        }
+    });
+
+
+    function now_date() {
+        return new Date().toISOString().slice(0, 10);
+    }
+
+
+    /* ── Calculate Remaining ── */
+    function calculateRemaining() {
+        const due  = parseFloat(amountDue.value) || 0;
+        const paid = parseFloat(amountPaid.value) || 0;
+        const remaining = Math.max(due - paid, 0);
+
+        remainingPrev.textContent = remaining.toFixed(2) + ' DA';
+
+        if (due === 0 && paid === 0) {
+            paymentStatus.textContent = 'En attente';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-gray-100 text-gray-600 font-bold text-sm';
+        } else if (paid === 0) {
+            paymentStatus.textContent = 'Non payé';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-red-100 text-red-700 font-bold text-sm';
+        } else if (paid < due) {
+            paymentStatus.textContent = 'Paiement partiel';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-amber-100 text-amber-700 font-bold text-sm';
+        } else {
+            paymentStatus.textContent = 'Payé';
+            paymentStatus.className = 'px-4 py-2 rounded-full bg-green-100 text-green-700 font-bold text-sm';
+        }
+    }
+
+    amountPaid.addEventListener('input', calculateRemaining);
+
+    calculateRemaining();
+    checkSubmitReady();
+
+});
 
 </script>
 

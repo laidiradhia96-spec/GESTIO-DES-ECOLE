@@ -2,12 +2,15 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AnnouncementController;
+use App\Http\Controllers\AttendanceArchiveController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\ClassSessionController;
+use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LevelController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\PaymentSignalementController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\RevenueController;
 use App\Http\Controllers\SchoolYearController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\StudentDashboardController;
@@ -106,6 +109,21 @@ Route::middleware(['auth', 'admin'])->group(function () {
         '/payments/unpaid',
         [PaymentController::class, 'unpaid']
     )->name('payments.unpaid');
+
+    Route::get(
+        '/payments/subjects-by-student',
+        [PaymentController::class, 'subjectsByStudent']
+    )->name('payments.subjects-by-student');
+
+    Route::get(
+        '/payments/groups-by-student-subject',
+        [PaymentController::class, 'groupsByStudentSubject']
+    )->name('payments.groups-by-student-subject');
+
+    Route::get(
+        '/payments/tariff-by-group',
+        [PaymentController::class, 'tariffByGroup']
+    )->name('payments.tariff-by-group');
 
     Route::resource(
         'payments',
@@ -253,6 +271,24 @@ Route::middleware(['auth', 'admin'])->group(function () {
         [AttendanceController::class, 'students']
     )->name('attendances.students');
 
+    // AJAX : groupes d'un enseignant (pour formulaire présence)
+    Route::get(
+        '/attendances/groups-by-teacher',
+        [AttendanceController::class, 'groupsByTeacher']
+    )->name('attendances.groups-by-teacher');
+
+    // AJAX : élèves d'un groupe (pour formulaire présence)
+    Route::get(
+        '/attendances/students-by-group',
+        [AttendanceController::class, 'studentsByGroup']
+    )->name('attendances.students-by-group');
+
+    // Archive des présences — AVANT la route wildcard {attendance}
+    Route::get(
+        '/attendances/archive',
+        [AttendanceArchiveController::class, 'index']
+    )->name('attendances.archive');
+
     Route::get(
         '/attendances/{attendance}',
         [AttendanceController::class, 'show']
@@ -318,6 +354,65 @@ Route::middleware(['auth', 'admin'])->group(function () {
         '/school-years/{schoolYear}/current',
         [SchoolYearController::class, 'setCurrent']
     )->name('school-years.set-current');
+
+    // ======================================================
+    // REVENUS
+    // ======================================================
+
+    Route::get(
+        '/revenus',
+        [RevenueController::class, 'index']
+    )->name('revenus.index');
+
+    Route::get(
+        '/revenus/enseignants/{teacher}/fiche',
+        [RevenueController::class, 'fiche']
+    )->name('revenus.fiche');
+
+    Route::get(
+        '/revenus/enseignants/{teacher}/print',
+        [RevenueController::class, 'print']
+    )->name('revenus.print');
+
+    // ======================================================
+    // GROUPES PÉDAGOGIQUES
+    // ======================================================
+
+    // AJAX : groupes par matière + niveau (inscription)
+    // IMPORTANT : AVANT Route::resource('groups') pour ne pas
+    // être capturé par groups/{group}
+    Route::get(
+        '/groups/by-subject-level',
+        [GroupController::class, 'getGroupsBySubjectAndLevel']
+    )->name('groups.by-subject-level');
+
+    // AJAX : groupes par niveau pour inscription
+    Route::get(
+        '/levels/{level}/groups-json',
+        [GroupController::class, 'getGroupsByLevel']
+    )->name('groups.by-level');
+
+    // AJAX : matières d'un enseignant
+    Route::get(
+        '/teachers/{teacher}/subjects-json',
+        [GroupController::class, 'getSubjectsByTeacher']
+    )->name('groups.subjects-by-teacher');
+
+    // AJAX : niveaux d'un enseignant
+    Route::get(
+        '/teachers/{teacher}/levels-json',
+        [GroupController::class, 'getLevelsByTeacher']
+    )->name('groups.levels-by-teacher');
+
+    Route::resource(
+        'groups',
+        GroupController::class
+    );
+
+    Route::patch(
+        '/groups/{group}/toggle-status',
+        [GroupController::class, 'toggleStatus']
+    )->name('groups.toggle-status');
 
 });
 

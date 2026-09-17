@@ -18,6 +18,8 @@ class Enrollment extends Model
 
         'teacher_id',
 
+        'group_id',
+
         'start_date',
 
         'status',
@@ -51,6 +53,16 @@ class Enrollment extends Model
     {
         return $this->belongsTo(
             Teacher::class
+        );
+    }
+
+    /**
+     * Groupe pédagogique (SSOT)
+     */
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(
+            Group::class
         );
     }
 

@@ -118,7 +118,11 @@ class TeacherController extends Controller
      */
     public function show(Teacher $teacher)
     {
-        $teacher->load('levels', 'subjects');
+        $teacher->load([
+            'levels',
+            'subjects',
+            'groups' => fn ($q) => $q->with(['tariffs', 'schedules'])->latest(),
+        ]);
 
         return view('teachers.show', compact('teacher'));
     }
